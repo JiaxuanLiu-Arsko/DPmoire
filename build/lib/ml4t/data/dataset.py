@@ -3,6 +3,8 @@ import re
 
 from ase import Atoms
 from ase.io import write as asewrite
+from ase.io import read as aseread
+from ase.io.extxyz import read_extxyz
 from ase.io.vasp import read_vasp_out
 from ase.calculators.singlepoint import SinglePointCalculator
 
@@ -39,11 +41,6 @@ class Dataset:
         for i in range(nSecs):
             for j in range(nSecs):
                 self.loadDataset_OUTCAR(includeDir+"/"+str(i)+"_"+str(j)+"/"+infileSTR, freq=freq)
-
-    def startFromNPZ(self, infileSTR:str):
-        if len(self.data["energies"])>0:
-            print("WARNING: Erasing existing dataset!")
-        self.data = np.load(infileSTR)
 
     def loadDataset_AB(self, infileSTR):
         '''
@@ -115,69 +112,34 @@ class Dataset:
             self.data["forces"].append(f)
 
     def loadDataset_OUTCAR(self, infileSTR, freq):
+        '''
+        Load dataset from vasp OUTCAR object using ase.io.read_vasp_out.
+        Only capable for reading OUTCAR of relaxation or regular MD. 
+        Invalid to read from OUTCAR of MLFF MODULE.
+        '''
         outcarStructures = read_vasp_out(infileSTR, ":")
-        print(len(outcarStructures))
         for i, structure in enumerate(outcarStructures):
             if i%freq != 0:
                 continue
-            self.data["positions"].append(structure.get_positions())
-            self.data["forces"].append(structure.get_forces())
-            self.data["symbols"].append(structure.get_chemical_symbols())
-            self.data["cells"].append(structure.get_cell().array)
-            self.data["energies"].append(structure.get_total_energy())
+            self.loadDataset_Atoms(structure)
 
-    def loadDataset_OUTCAR_old(self, infileSTR, freq):
-        infile = open(infileSTR)
-        dataset = infile.read()
-        vrhfin = re.findall(r'VRHFIN\s*=[A-Za-z]+', dataset)
-        elements = []
-        for item in vrhfin:
-            elements.append(item.split("=")[-1])
-        
-        ionPerType = re.search(r'ions per type\s*=(\s*\d+)+', dataset).group()
-        nElement = []
-        for item in ionPerType.split("=")[-1].split():
-            nElement.append(int(item))
-
-        lat = re.findall(r'A[1,2,3] = \(\s*(-*\d+\.\d+),\s*(-*\d+\.\d+),\s*(-*\d+\.\d+)\)', dataset)
-        latVec = [[float(lat[dim][0]), float(lat[dim][1]), float(lat[dim][2])] for dim in range(3)]
-        energies = re.findall(r'free  energy   TOTEN\s*=\s*(-*\d+\.\d+)\s*eV', dataset)
-        structures = re.findall(r'POSITION\s+TOTAL-FORCE.*?\n\s+(-{0,1}\d+\.\d+\s+-{0,1}\d+\.\d+\s+-{0,1}\d+\.\d+.*?)\n\s+(?=-{3,})', dataset, re.DOTALL)
-        for i,structure in enumerate(structures):
-            if i%freq != 0:
-                continue
-            pos = []
-            symbol = []
-            f = []
-            lines = structure.split("\n")
-            k = 0
-            nAtom = 0
-            for line in lines:
-                words = line.split()
-                pos.append([float(words[0]),float(words[1]),float(words[2])])
-                f.append([float(words[3]),float(words[4]),float(words[5])])
-                if(nElement[k]>nAtom):
-                    nAtom += 1
-                else:
-                    nAtom = 0
-                    k += 1
-                symbol.append(elements[k])
-            self.data["positions"].append(pos)
-            self.data["symbols"].append(symbol)
-            self.data["forces"].append(f) 
-            self.data["cells"].append(latVec)
-            self.data["energies"].append(float(energies[i]))
-            self.nConfigs += 1
-                
-
-    def save_npz(self, saveSTR):
+    def loadDataset_extxyz(self, infileSTR):
         '''
-        save the dataset to .npz file.
+        Load dataset from .extxyz file.
+        '''        
+        structures = aseread(infileSTR, format='extxyz', index=":")
+        for structure in structures:
+            self.loadDataset_Atoms(structure)
+
+    def loadDataset_Atoms(self, structure):
         '''
-        saveData = {}
-        for list in self.data.keys():
-            saveData[list] = np.array(self.data[list])
-        np.savez_compressed(saveSTR, saveData)
+        load dataset from ase.Atoms object.
+        '''
+        self.data["positions"].append(structure.get_positions())
+        self.data["forces"].append(structure.get_forces())
+        self.data["symbols"].append(structure.get_chemical_symbols())
+        self.data["cells"].append(structure.get_cell().array)
+        self.data["energies"].append(structure.get_total_energy())
 
     def save_extxyz(self, saveSTR):
         '''
@@ -198,4 +160,4 @@ class Dataset:
             # set calculator to assign targets
             calculator = SinglePointCalculator(curr_atoms, energy=self.data["energies"][idx], forces=self.data["forces"][idx])
             curr_atoms.calc = calculator
-            asewrite(saveSTR, curr_atoms, format='extxyz', append=True)
+            asewrite(saveSTR, curr_atoms, format='extxyz')

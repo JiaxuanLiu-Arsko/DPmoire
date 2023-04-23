@@ -31,7 +31,8 @@ def main(args=None):
         if params.collectMinDat:
             dataset.loadAll_OUTCAR(nSecs=params.nSecs, freq=params.collectFreq, includeDir=params.workDir)
         print(f"Minimize finished. Time cost = {time.time()-startTime} secs.")
-        dataset.save_npz(f"{params.workDir}/data.npz")
+        dataset.save_extxyz(f"{params.workDir}/data.extxyz")
+
         startTime = time.time()
         abrunner = ABRunner(params=params)
         abrunner.loadEnv()
@@ -43,14 +44,15 @@ def main(args=None):
             dataset.loadAll_OUTCAR(nSecs=params.nSecs, freq=params.collectFreq, includeDir=params.workDir)
         else:
             print("Warning!No Dataset in MD Loaded!")
-        dataset.save_npz(f"{params.workDir}/data.npz")
+        dataset.save_extxyz(f"{params.workDir}/data.extxyz")
         startTime = time.time()
+
     if args.runMode == "all" or args.runMode == "train":
         if args.runMode == "train":
-            if os.path.exists(f"{params.workDir}/data.npz"):
-                dataset.startFromNPZ(f"{params.workDir}/data.npz")
+            if os.path.exists(f"{params.workDir}/data.extxyz"):
+                dataset.loadDataset_extxyz(f"{params.workDir}/data.extxyz")
                 dataset.nConfigs = len(dataset.data["energies"])
-                print("restart from NPZ.")
+                print("restart from extxyz.")
             else:
                 dataset.loadAll_AB(params.nSecs, params.workDir)
                 dataset.nConfigs = len(dataset.data["energies"])
@@ -61,12 +63,6 @@ def main(args=None):
         trainer.startTrain()
         print(f"Training finished. Time cost = {time.time()-startTime} secs.")
         trainer.deploy()
-
-def loadEnv(params:Parameters):
-    shft = Shifter(param=params)
-    shft.shiftAll(outDir=params.workDir)
-    envgen = Envgen(params=params)
-    envgen.genAll(genDir=params.workDir, params=params)
 
 if __name__ == "__main__":
     main()
