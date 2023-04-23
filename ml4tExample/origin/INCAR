@@ -1,0 +1,39 @@
+SYSTEM = C
+ISYM   = 0        ! no symmetry imposed
+NCORE = 4
+
+! ab initio
+GGA      = BO
+PARAM1   = 0.1833333333
+PARAM2   = 0.22
+AGGAC    = 0.0
+LUSE_VDW = .TRUE.
+LASPH    = .TRUE.
+
+PREC = A
+NELM = 128
+NELMIN = 4
+ISMEAR = 0      
+SIGMA  = 0.03  ! smearing in eV
+EDIFF  = 1e-5
+ENCUT = 480
+LWAVE  = F
+LCHARG = F
+
+! MD
+
+IBRION = 0        ! MD (treat ionic dgr of freedom)
+NSW    = 50000    ! no of ionic steps
+POTIM  = 1      ! MD time step in fs
+MDALGO = 3                ! Langevin thermostat
+LANGEVIN_GAMMA   = 1      ! friction
+TEBEG  = 30              ! temperature
+TEEND = 330
+ISIF   = 2        ! NVT
+
+! machine learning
+ML_LMLFF  = T
+ML_ISTART = 0
+ML_RCUT1 = 6
+ML_RCUT2 = 6
+ML_CTIFOR = 0.002

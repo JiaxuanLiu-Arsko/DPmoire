@@ -1,0 +1,80 @@
+BesselBasis_trainable: true
+PolynomialCutoff_p: 6
+append: true
+ase_args:
+  format: extxyz
+avg_num_neighbors: auto
+batch_size: 5
+chemical_symbols:
+- C
+dataset: ase
+dataset_file_name: ./data/data.extxyz
+dataset_seed: 456
+default_dtype: float32
+early_stopping_lower_bounds:
+  validation_loss: 0.00001
+early_stopping_patiences:
+  validation_loss: 30
+ema_decay: 0.99
+ema_use_num_updates: true
+invariant_layers: 2
+invariant_neurons: 64
+l_max: 2
+learning_rate: 0.005
+loss_coeffs:
+  forces: 1
+  total_energy:
+  - 1
+  - PerAtomMSELoss
+lr_scheduler_factor: 0.5
+lr_scheduler_name: ReduceLROnPlateau
+lr_scheduler_patience: 100
+max_epochs: 100000
+metrics_components:
+- - forces
+  - mae
+- - forces
+  - rmse
+- - forces
+  - mae
+  - PerSpecies: true
+    report_per_component: false
+- - forces
+  - rmse
+  - PerSpecies: true
+    report_per_component: false
+- - total_energy
+  - mae
+- - total_energy
+  - mae
+  - PerAtom: true
+metrics_key: validation_loss
+n_train: 693
+n_val: 173
+nonlinearity_gates:
+  e: silu
+  o: tanh
+nonlinearity_scalars:
+  e: silu
+  o: tanh
+nonlinearity_type: gate
+num_basis: 8
+num_features: 32
+num_layers: 3
+optimizer_amsgrad: true
+optimizer_name: Adam
+parity: true
+per_species_rescale_scales: dataset_forces_rms
+per_species_rescale_scales_trainable: false
+per_species_rescale_shifts: dataset_per_atom_total_energy_mean
+per_species_rescale_shifts_trainable: false
+r_max: 6.1
+report_init_validation: true
+root: result
+run_name: model
+seed: 123
+shuffle: true
+train_val_split: random
+use_ema: true
+use_sc: true
+validation_batch_size: 10
