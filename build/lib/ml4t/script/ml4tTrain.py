@@ -25,13 +25,15 @@ def main(args=None):
     startTime = time.time()
     dataset = Dataset()
     if args.runMode == "all" or args.runMode == "ab":
-        minimizer = Minimizer(params=params)
-        minimizer.loadEnv()
-        minimizer.runMinimize()
         if params.collectMinDat:
+            #we find structure relaxation sometimes converges to the minimum stacking,
+            #so we decide to use the relaxation proccess as a data collecter rather than a preprocess.
+            minimizer = Minimizer(params=params)
+            minimizer.loadEnv()
+            minimizer.runMinimize()
             dataset.loadAll_OUTCAR(nSecs=params.nSecs, freq=params.collectFreq, includeDir=params.workDir)
-        print(f"Minimize finished. Time cost = {time.time()-startTime} secs.")
-        dataset.save_extxyz(f"{params.workDir}/data.extxyz")
+            print(f"Minimize finished. Time cost = {time.time()-startTime} secs.")
+            dataset.save_extxyz(f"{params.workDir}/data.extxyz")
 
         startTime = time.time()
         abrunner = ABRunner(params=params)

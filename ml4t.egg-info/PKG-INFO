@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ml4t
-Version: 0.1.1
+Version: 0.1.2
 Summary: ml4t is an open-source code for automatically train Machine Learning Forcefields for twisted bilayer materials
 Author: jiaxuan Liu
 Requires-Python: >=3.7
