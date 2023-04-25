@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ml4t",
-    version="0.1.2",
+    version="0.1.3",
     description="ml4t is an open-source code for automatically train Machine Learning Forcefields for twisted bilayer materials",
     author="jiaxuan Liu",
     python_requires=">=3.7",

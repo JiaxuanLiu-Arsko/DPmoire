@@ -146,6 +146,10 @@ class Dataset:
         save the dataset to .extxyz file.
         Copied from github.
         '''
+        #Clear the existing content in outfile.
+        with open(saveSTR, "w") as fout:
+            fout.write("")
+
         for idx in range(self.nConfigs):
             curr_atoms = Atoms(
             # set atomic positions
@@ -160,4 +164,4 @@ class Dataset:
             # set calculator to assign targets
             calculator = SinglePointCalculator(curr_atoms, energy=self.data["energies"][idx], forces=self.data["forces"][idx])
             curr_atoms.calc = calculator
-            asewrite(saveSTR, curr_atoms, format='extxyz')
+            asewrite(saveSTR, curr_atoms, format='extxyz', append=True)
