@@ -1,9 +1,9 @@
 import argparse, os, yaml
 
-from ml4t.preprocess import Shifter, Envgen, Parameters
-from ml4t.data import ABRunner
-from ml4t.train import Trainer
-from ml4t.test import getAseForces, getVaspForces, findError
+from MLmoire.preprocess import Shifter, Envgen, Parameters
+from MLmoire.data import ABRunner
+from MLmoire.train import Trainer
+from MLmoire.test import getAseForces, getVaspForces, findError
 
 def main(args=None):
 

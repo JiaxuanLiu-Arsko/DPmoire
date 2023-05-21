@@ -1,9 +1,9 @@
 import argparse, os, yaml, time
 
-from ml4t.preprocess import Shifter, Envgen, Parameters, Minimizer
-from ml4t.data import ABRunner, Dataset
-from ml4t.train import Trainer
-from ml4t.test import getAseForces, getVaspForces, findError
+from MLmoire.preprocess import Shifter, Envgen, Parameters, Minimizer
+from MLmoire.data import ABRunner, Dataset
+from MLmoire.train import Trainer
+from MLmoire.test import getAseForces, getVaspForces, findError
 def main(args=None):
 
     parser = argparse.ArgumentParser(

@@ -1,3 +1,0 @@
-[console_scripts]
-ml4tTest = ml4t.script.ml4tTest:main
-ml4tTrain = ml4t.script.ml4tTrain:main
