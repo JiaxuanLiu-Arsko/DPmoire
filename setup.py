@@ -2,17 +2,17 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="MLmoire",
+    name="DPmoire",
     version="0.1.4",
-    description="MLmoire is an open-source code for automatically train Machine Learning Forcefields for twisted bilayer materials",
+    description="DPmoire is an open-source code for automatically train Machine Learning Forcefields for twisted bilayer materials",
     author="jiaxuan Liu",
     python_requires=">=3.7",
-    packages=find_packages(include=["MLmoire", "MLmoire.*"]),
+    packages=find_packages(include=["DPmoire", "DPmoire.*"]),
     entry_points={
         # make the scripts available as command line scripts
         "console_scripts": [
-            "MLmoireTrain = MLmoire.script.MLmoire:main",
-            "MLmoireTest = MLmoire.script.MLmoire:main"
+            "DPmoireTrain = DPmoire.script.DPmoire:main",
+            "DPmoireTest = DPmoire.script.DPmoire:main"
         ]
     },
     install_requires=[

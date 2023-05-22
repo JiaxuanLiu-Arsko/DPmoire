@@ -1,9 +1,9 @@
 import argparse, os, yaml
 
-from MLmoire.preprocess import Shifter, Envgen, Parameters
-from MLmoire.data import ABRunner
-from MLmoire.train import Trainer
-from MLmoire.test import getAseForces, getVaspForces, findError
+from DPmoire.preprocess import Shifter, Envgen, Parameters
+from DPmoire.data import ABRunner
+from DPmoire.train import Trainer
+from DPmoire.test import getAseForces, getVaspForces, findError
 
 def main(args=None):
 

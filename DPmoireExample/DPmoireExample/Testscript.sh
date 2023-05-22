@@ -38,4 +38,4 @@ fi
 
 ### 执行任务
 conda activate nequIP
-ml4tTest config.yaml --runMode run
+DPmoireTest config.yaml --runMode run

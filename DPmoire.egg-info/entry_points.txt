@@ -1,0 +1,3 @@
+[console_scripts]
+DPmoireTest = DPmoire.script.DPmoire:main
+DPmoireTrain = DPmoire.script.DPmoire:main

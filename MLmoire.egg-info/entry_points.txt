@@ -1,3 +1,0 @@
-[console_scripts]
-MLmoireTest = MLmoire.script.MLmoire:main
-MLmoireTrain = MLmoire.script.MLmoire:main
