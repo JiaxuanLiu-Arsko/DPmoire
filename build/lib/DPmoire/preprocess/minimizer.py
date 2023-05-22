@@ -48,7 +48,7 @@ class Minimizer:
             missions = 0
             for job in jobs:
                 missions += len(os.popen(f"squeue | grep {job}").readlines())
-        #see ml4tTrain line 29.
+        #see DPmoireTrain line 29.
         #self.contToPos()
         
     def loadEnv(self):

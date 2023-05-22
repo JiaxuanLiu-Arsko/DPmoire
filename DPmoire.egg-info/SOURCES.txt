@@ -16,7 +16,7 @@ DPmoire/preprocess/minimizer.py
 DPmoire/preprocess/parameters.py
 DPmoire/preprocess/shifter.py
 DPmoire/script/DPmoireTest.py
-DPmoire/script/MLmoireTrain.py
+DPmoire/script/DPmoireTrain.py
 DPmoire/script/__init__.py
 DPmoire/test/__init__.py
 DPmoire/test/test.py

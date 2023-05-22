@@ -6,7 +6,7 @@ from nequip.ase import nequip_calculator as calc
 from ase.md.langevin import Langevin
 from ase import Atoms
 from ase import units
-from ml4t.preprocess import Parameters, Envgen
+from DPmoire.preprocess import Parameters, Envgen
 import matplotlib.pyplot as plt
 
 def findError(params:Parameters, nTerm, termSize, mode):

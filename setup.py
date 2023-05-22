@@ -11,8 +11,8 @@ setup(
     entry_points={
         # make the scripts available as command line scripts
         "console_scripts": [
-            "DPmoireTrain = DPmoire.script.DPmoire:main",
-            "DPmoireTest = DPmoire.script.DPmoire:main"
+            "DPmoireTrain = DPmoire.script.DPmoireTrain:main",
+            "DPmoireTest = DPmoire.script.DPmoireTest:main"
         ]
     },
     install_requires=[
