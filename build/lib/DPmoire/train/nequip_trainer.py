@@ -18,20 +18,20 @@ class NequIPTrainer(MLFFTrainer):
             os.mkdir(f"{self.work_dir}/data/")
         self.dataset.save_extxyz(f"{self.work_dir}/data/data.extxyz")
 
-    def make_mlff_config(self):
+    def make_mlff_config(self, RCUT):
         with open(f"{self.input_dir}/{self.config_file_template}", "r") as f:
             config_tmp = yaml.load(f, Loader=yaml.FullLoader)
-        config_tmp["r_max"] = float(self.RCUT)
+        config_tmp["r_max"] = float(RCUT)
         config_tmp["chemical_symbols"] = self.elements
         config_tmp["n_train"] = int(self.dataset.n_configs*0.8)
         config_tmp["n_val"] = int(self.dataset.n_configs*0.2)
         with open(f"{self.work_dir}/nequIP.yaml", "w") as f:
             yaml.dump(config_tmp, f)
     
-    def preprocess(self):
+    def preprocess(self, RCUT):
         self.get_params()
         self.make_dataset_file()
-        self.make_mlff_config()
+        self.make_mlff_config(RCUT)
         os.chdir(self.work_dir)
         os.system(f"cp {self.script_dir}/{self.learn_script} ./")
     

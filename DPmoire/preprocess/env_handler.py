@@ -90,8 +90,8 @@ class EnvironmentHandler:
                 outfile.write(out_str)
             os.system(f"mv {out_dir}/ML_ABN {out_dir}/ML_AB")
             os.system(f"mv {out_dir}/ML_FFN {out_dir}/ML_FF")
-        self.gen_POTCAR(self.get_elements(atoms), f"{out_dir}")
         atoms_sc = sort(make_supercell(prim=atoms, P=[[self.sc, 0, 0], [0, self.sc, 0], [0, 0, 1]]))
+        self.gen_POTCAR(self.get_elements(atoms_sc), f"{out_dir}")
         write_vasp(f"{out_dir}/POSCAR", atoms_sc)
         os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir}")
     
@@ -146,7 +146,7 @@ class EnvironmentHandler:
             if len(lines.split())<=0:
                 continue
             if lines.split()[0] == "ENCUT":
-                out_str += "ENCUT = " + str(self.ENCUT*1.5) + "\n"
+                out_str += "ENCUT = " + str(self.ENCUT*1.6) + "\n"
             elif lines.split()[0] == "ML_RCUT1":
                 out_str += "ML_RCUT1 = " + str(self.RCUT1) + "\n"
             elif lines.split()[0] == "ML_RCUT2":
@@ -166,6 +166,6 @@ class EnvironmentHandler:
         kpoints = []
         for vec in lat_vec[:-1]:
             len = np.sqrt(vec[0]*vec[0] + vec[1]*vec[1])*self.sc
-            kpoints.append(int(40/len))
+            kpoints.append(int(40/len)+1)
         kpoints.append(1)
         return kpoints

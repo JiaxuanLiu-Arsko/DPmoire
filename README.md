@@ -95,7 +95,7 @@ Before you try to train another material, these files **must** be taken care of 
   - config.yaml for DPmoireTrain. Tag "d" is the approximate value of interlayer distance. The shifted structure will be generated according to this, and the cutoff of MLFF will also be selected by this.
 
 There's something the scripts will automatically configure:
-  - ENCUT of INCAR will be automatically taken care of by ENCUT=1.2\*ENMAX.
+  - ENCUT of INCAR will be automatically taken care of by ENCUT=1.6\*ENMAX.
   - POTCAR will be automatically generated
   - KPOINTS will be generated according to $n_{k_i}\cdot a_{i}>40$
 

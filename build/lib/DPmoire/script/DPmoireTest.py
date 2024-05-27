@@ -1,9 +1,9 @@
 import argparse, os, yaml
 
-from DPmoire.preprocess import Shifter, Envgen, Parameters
-from DPmoire.data import ABRunner
-from DPmoire.train import Trainer
-from DPmoire.test import getAseForces, getVaspForces, findError
+from preprocess import Shifter, Envgen, Parameters
+from data import ABRunner
+from train import Trainer
+from test.test import getAseForces, getVaspForces, findError
 
 def main(args=None):
 
