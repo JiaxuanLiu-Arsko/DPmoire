@@ -6,7 +6,7 @@
 
 Once `nequip` is installed, you can install `DPmoire` from source by running:
 ```bash
-unzip DPmoire.zip
+git clone https://github.com/JiaxuanLiu-Arsko/DPmoire.git
 cd DPmoire
 pip install .
 ```
@@ -20,7 +20,7 @@ An ready-to-run example can be found in **examples/MoS2**
 A *.yaml format file are required for controll the DPmoire package.
 An example with full comments can be found in **examples/MoS2/config.yaml**
 
-### Files should be prepared
+### Files
 Several directories should be prepared before you start to train MLFF.
 
   - input: A directory contains essential input files for VASP and NequIP training.
@@ -36,7 +36,7 @@ Several directories should be prepared before you start to train MLFF.
 
     - vdw_kernel.bindat: VASP vdw Kernel files. See **Important technical remarks** section in [Nonlocal vdW-DF functionals](https://www.vasp.at/wiki/index.php/Nonlocal_vdW-DF_functionals)
 
-    - bot_layer.poscar and top_layer.poscar: Unit cell POSCAR of bottom layer and bottom layer atoms.
+    - bot_layer.poscar and top_layer.poscar: Unit cell POSCAR of bottom layer and bottom layer atoms. **The c axis of poscar should be large enough!**
   - scripts: A directory contains bash scripts to submit VASP and NequIP job in slurm system.
 
 ## Running DPmoire
@@ -68,7 +68,7 @@ Also, you can use the following command to only get a dataset:
 nohup DPmoireTrain ./config.yaml --mode run &
 ```
 
-The dataset will be in [`work_dir`/rlx_data.extxyz](./example/MoS2/rlx_data.extxyz) and [`work_dir`/MD_data.extxyz](./example/MoS2/MD_data.extxyz), corresponds to data collected during relaxation and MD process.
+The dataset will be in [`work_dir`/rlx_data.extxyz](./example/MoS2/) and [`work_dir`/MD_data.extxyz](./example/MoS2/), corresponds to data collected during relaxation and MD process.
 
 The whole dataset are merged in ./main/data/dataset.extxyz, and the nequIP.yaml was set properly. You can copy the "main" directory to the gpu machine and train the MLFF seperately:
 
@@ -88,9 +88,15 @@ DPmoire will try to find rlx_data.extxyz and MD_data.extxyz. If there is no MD_d
 
 ### Tips for new training
 Before you try to train another material, these files **must** be taken care of :
-  - *_INCAR: remeber to change the vdw functional settings to appropriate one. ENCUT will be automatically taken care of by the script by ENCUT=1.2\*ENMAX in POTCAR.
+  - *_INCAR: remeber to change the vdw functional settings to appropriate one. 
   - top_layer.poscar, bot_layer.poscar
-  - config.yaml for DPmoireTrain. Tag "d" which controls the cutoff for MLFF should be set to an appropriate value. (Mainly according to the Interlayer Distance of the material)
+  - config.yaml for DPmoireTrain. Tag "d" is the approximate value of interlayer distance. The shifted structure will be generated according to this, and the cutoff of MLFF will also be selected by this.
+
+There's something the scripts will automatically configure:
+  - ENCUT of INCAR will be automatically taken care of by ENCUT=1.2\*ENMAX.
+  - POTCAR will be automatically generated
+  - KPOINTS will be generated according to $n_{k_i}\cdot a_{i}>40$
+
 
 Then it's ready to run a new train.
 
