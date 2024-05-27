@@ -1,3 +1,4 @@
-from .trainer import Trainer
+from .mlff_trainer import MLFFTrainer
+from .nequip_trainer import NequIPTrainer 
 
-__all__ = [Trainer]
+__all__ = [MLFFTrainer, NequIPTrainer]

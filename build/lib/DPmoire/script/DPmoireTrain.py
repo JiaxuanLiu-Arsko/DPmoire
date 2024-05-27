@@ -1,9 +1,10 @@
 import argparse, os, yaml, time
 
-from DPmoire.preprocess import Shifter, Envgen, Parameters, Minimizer
-from DPmoire.data import ABRunner, Dataset
-from DPmoire.train import Trainer
-from DPmoire.test import getAseForces, getVaspForces, findError
+from ..preprocess import Config, EnvironmentHandler
+from ..data import Dataset
+from ..train import NequIPTrainer
+from ..dft import RelaxationHandler, MDHandler, DFTHandler
+from copy import deepcopy
 def main(args=None):
 
     parser = argparse.ArgumentParser(
@@ -14,57 +15,70 @@ def main(args=None):
     )
 
     parser.add_argument(
-        "--runMode", default="all", type=str, help="runMode: all, ab, or train."
+        "--mode", default="all", type=str, help="mode: all, ab, or train."
     )
 
     args = parser.parse_args(args=args)
 
     if not os.path.isfile(args.config):
         print("YAML not found!")
-    params = Parameters(args.config)
-    startTime = time.time()
+    config = Config.from_yaml(args.config)
+    start_time = time.time()
     dataset = Dataset()
-    if args.runMode == "all" or args.runMode == "ab":
-        if params.collectMinDat:
-            #we find structure relaxation sometimes converges to the minimum stacking,
-            #so we decide to use the relaxation proccess as a data collecter rather than a preprocess.
-            minimizer = Minimizer(params=params)
-            minimizer.loadEnv()
-            minimizer.runMinimize()
-            dataset.loadAll_OUTCAR(nSecs=params.nSecs, freq=params.collectFreq, includeDir=params.workDir)
-            print(f"Minimize finished. Time cost = {time.time()-startTime} secs.")
-            dataset.save_extxyz(f"{params.workDir}/data.extxyz")
+    md_handler = MDHandler(config=config)
+    if args.mode == "all" or args.mode == "ab":
+        work_dir = config["work_dir"]
+        env_handler = EnvironmentHandler(config=config)
+        if config["init_mlff"]:
+            env_handler.gen_init_environment(f"{work_dir}/init_mlff", 0)
+            os.system(f"cp {config['script_dir']}/{config['DFT_script']} {work_dir}/init_mlff")
+            md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
+            md_handler.wait_until_finished()
+            env_handler.gen_init_environment(f"{work_dir}/init_mlff", 1)
+            md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
+            md_handler.wait_until_finished()
+            os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
+            os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
+        if config["do_relaxation"]:
+            env_handler.gen_POSCAR(config["work_dir"])
+            env_handler.gen_environment('rlx_INCAR', config["work_dir"])
+            rlx_handler = RelaxationHandler(config=config)
+            rlx_handler.run_calculation()
+            rlx_dataset = rlx_handler.postprocess()
+            dataset.load_dataset_class(rlx_dataset)
 
-        startTime = time.time()
-        abrunner = ABRunner(params=params)
-        abrunner.loadEnv()
-        abrunner.runAB()
-        print(f"MD finished. Time cost = {time.time()-startTime} secs.")
-        if params.collectMode == "AB":
-            dataset.loadAll_AB(nSecs=params.nSecs, includeDir=params.workDir)
-        elif params.collectMode == "OUTCAR":
-            dataset.loadAll_OUTCAR(nSecs=params.nSecs, freq=params.collectFreq, includeDir=params.workDir)
+            print(f"Relaxation finished. {time.time() - start_time}s consumed.")
+            start_time = time.time()
         else:
-            print("Warning!No Dataset in MD Loaded!")
-        dataset.save_extxyz(f"{params.workDir}/data.extxyz")
-        startTime = time.time()
+            if os.path.exists(f"{work_dir}/rlx_data.extxyz"):
+                dataset.load_dataset_extxyz(f"{work_dir}/rlx_data.extxyz")
+        env_handler.gen_environment('MD_INCAR', config["work_dir"])
+        md_handler.run_calculation()
+        md_dataset = md_handler.postprocess()
+        dataset.load_dataset_class(md_dataset)
 
-    if args.runMode == "all" or args.runMode == "train":
-        if args.runMode == "train":
-            if os.path.exists(f"{params.workDir}/data.extxyz"):
-                dataset.loadDataset_extxyz(f"{params.workDir}/data.extxyz")
-                dataset.nConfigs = len(dataset.data["energies"])
-                print("restart from extxyz.")
+        print(f"MD finished. {time.time() - start_time}s consumed.")
+        start_time = time.time()
+
+    if args.mode == "all" or args.mode == "train":
+        if args.mode == "train":
+            if os.path.exists(f"{config['work_dir']}/rlx_data.extxyz"):
+                dataset.load_dataset_extxyz(f"{config['work_dir']}/rlx_data.extxyz")
+                print("Relaxation data loaded.")
             else:
-                dataset.loadAll_AB(params.nSecs, params.workDir)
-                dataset.nConfigs = len(dataset.data["energies"])
-                print("restart from AB.")
-        trainer = Trainer(params=params)
-        trainer.makeDataset(dataset)
-        trainer.genNequEnv()
-        trainer.startTrain()
-        print(f"Training finished. Time cost = {time.time()-startTime} secs.")
-        trainer.deploy()
+                print("Warninng! No rlx_data.extxyz found! No relaxation data loaded!")
+            if os.path.exists(f"{config['work_dir']}/MD_data.extxyz"):
+                dataset.load_dataset_extxyz(f"{config['work_dir']}/MD_data.extxyz")
+                print("MD data loaded.")
+            else:
+                md_dataset = md_handler.make_dataset()
+                dataset.load_dataset_class(md_dataset)
+                print("Warninng! No MD_data.extxyz found, load MD data from ML_ABN files!")
+        trainer = NequIPTrainer(config=config, dataset=dataset)
+        trainer.preprocess()
+        trainer.submit_training()
+        trainer.postprocess()
+        print(f"Training finished. Time cost = {time.time()-start_time} secs.")
 
 if __name__ == "__main__":
     main()

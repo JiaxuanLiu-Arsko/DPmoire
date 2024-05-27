@@ -17,37 +17,37 @@ class Parameters:
     elements = []
     latVec = [[], []]
     ENCUT = 0
-    collectMinDat = False
+    do_rlx = False
     collectFreq = 0
     collectMode = ""
     def __init__(self, configFile:str):
         with open(configFile, "r") as f:
             config = yaml.load(f, Loader=yaml.Loader)
-        self.nSecs = config["Sectors"]
-        self.workDir = os.path.abspath(config["WorkDir"])
-        self.originDir = os.path.abspath(config["originDir"])
-        self.potDir = os.path.abspath(config["POTCARDir"])
-        self.nThreads = config["nThreads"]
-        self.attachDir = os.path.abspath(config["attachDir"])
-        self.scriptMD = config["MDscript"]
+        self.nSecs = config["sectors"]
+        self.workDir = os.path.abspath(config["work_dir"])
+        self.originDir = os.path.abspath(config["origin_dir"])
+        self.potDir = os.path.abspath(config["POTCAR_dir"])
+        self.nThreads = config["n_threads"]
+        self.attachDir = os.path.abspath(config["attach_dir"])
+        self.scriptMD = config["MD_script"]
         self.userName = config["username"]
-        self.scriptMD = config["MDscript"]
+        self.scriptMD = config["MD_script"]
         self.userName = config["username"]
-        self.scriptLearn = config["scriptLearn"]
-        self.testDir = os.path.abspath(config["testDir"])
-        self.minimizeDir = os.path.abspath(config["minimizeDir"])
-        if config["collectMinDat"] is None:
-            self.collectMinDat = False
+        self.scriptLearn = config["learn_script"]
+        self.testDir = os.path.abspath(config["test_dir"])
+        self.minimizeDir = os.path.abspath(config["relaxation_dir"])
+        if config["do_relaxation"] is None:
+            self.do_rlx = False
         else:
-            self.collectMinDat = config["collectMinDat"]
-        if config["collectFreq"] is None:
+            self.do_rlx = config["do_relaxation"]
+        if config["collect_freq"] is None:
             self.collectFreq = 5
         else:
-            self.collectFreq = config["collectFreq"]
-        if config["collectMode"] is None:
+            self.collectFreq = config["collect_freq"]
+        if config["collect_mode"] is None:
             self.collectMode = "AB"
         else:
-            self.collectMode = config["collectMode"]
+            self.collectMode = config["collect_mode"]
         self.getParams()
 
     def getParams(self):

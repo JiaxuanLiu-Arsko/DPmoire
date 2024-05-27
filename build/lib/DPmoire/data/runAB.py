@@ -49,8 +49,8 @@ class ABRunner:
                 missions += len(os.popen(f"squeue | grep {job}").readlines())
         
     def loadEnv(self):
-        shft = Shifter(param=self.params)
-        shft.shiftAll(outDir=self.workDir)
+        #shft = Shifter(param=self.params)
+        #shft.shiftAll(outDir=self.workDir)
         envgen = Envgen(params=self.params)
         envgen.genAll(genDir=self.workDir, params=self.params)
 

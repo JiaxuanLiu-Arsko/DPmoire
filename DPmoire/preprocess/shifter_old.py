@@ -15,6 +15,7 @@ class Shifter:
     splitter = None   #split function split(data, i), return the bool value deciding if the atom is on top or on bottom
     delta = []
     Header = ''         #Header of POSCAR
+    minHeader = ''
     data = []
     splitDat = []
     elements = []       #element contained in POSCAR
@@ -49,7 +50,7 @@ class Shifter:
         Read POSCAR data from Infile.
         '''
 
-        infile = open(inDir + "/POSCAR", 'r')
+        infile = open(inDir + "/POSCAR_top", 'r')
         for i,line in enumerate(infile):
             words = line.split()
             if i<8 :
@@ -67,8 +68,10 @@ class Shifter:
                     #read mode, Cartesian or Direct
                     readMode = self.mode[words[0]]
                     self.Header += "Cartesian\n"
+                    self.minHeader += "Selective dynamics\nCartesian\n"
                     continue
                 self.Header += line
+                self.minHeader += line
             else:
                 #read the main part of POSCAR
                 if readMode == 0:
@@ -109,6 +112,35 @@ class Shifter:
                 out.write(' ')
             out.write(str(line[2]))
             out.write('\n')
+        out.close()
+
+    def shift4Min(self, i, j, outDir):
+        '''
+        shift atoms at top layer by (i/nSecs*latVecA,i/nSecs*latVecB)
+        '''
+        flag = [True, True]
+        writePath = outDir+'/'+str(i)+'_'+str(j)
+        if not os.path.exists(writePath):
+            os.makedirs(writePath)             #create write path if not exist
+        out = open(writePath+"/POSCAR", "w")
+        out.write(self.minHeader)              #write the header of POSCAR
+        for idx,line in enumerate(self.data):
+            delta = []
+            if self.splitDat[idx]:  #top layer atoms
+                delta = [self.delta[0][0] * i + self.delta[1][0] * j, self.delta[0][1] * i + self.delta[1][1] * j, 0]
+            else:
+                delta = [0, 0, 0]
+            for dim in range(3):
+                out.write(str(line[dim] + delta[dim]))
+                out.write(' ')
+            if self.splitDat[idx] and flag[0]:
+                out.write('F F T \n')
+                flag[0] = False
+            elif (not self.splitDat[idx]) and flag[1]:
+                out.write('F F T \n')
+                flag[1] = False
+            else:
+                out.write('T T T \n')
         out.close()
     
     def shiftAll(self, outDir):

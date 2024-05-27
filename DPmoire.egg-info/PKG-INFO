@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: DPmoire
-Version: 0.1.4
+Version: 0.2.0
 Summary: DPmoire is an open-source code for automatically train Machine Learning Forcefields for twisted bilayer materials
-Author: jiaxuan Liu
+Author: Jiaxuan Liu
 Requires-Python: >=3.7

@@ -6,20 +6,21 @@ ase_args:
 avg_num_neighbors: auto
 batch_size: 5
 chemical_symbols:
-- C
+- B
+- N
 dataset: ase
 dataset_file_name: ./data/data.extxyz
 dataset_seed: 456
 default_dtype: float32
 early_stopping_lower_bounds:
-  validation_loss: 0.00001
+  validation_loss: 1.0e-05
 early_stopping_patiences:
   validation_loss: 30
 ema_decay: 0.99
 ema_use_num_updates: true
 invariant_layers: 2
 invariant_neurons: 64
-l_max: 2
+l_max: 3
 learning_rate: 0.005
 loss_coeffs:
   forces: 1
@@ -49,8 +50,8 @@ metrics_components:
   - mae
   - PerAtom: true
 metrics_key: validation_loss
-n_train: 693
-n_val: 173
+n_train: 1547
+n_val: 386
 nonlinearity_gates:
   e: silu
   o: tanh
@@ -60,7 +61,7 @@ nonlinearity_scalars:
 nonlinearity_type: gate
 num_basis: 8
 num_features: 32
-num_layers: 3
+num_layers: 4
 optimizer_amsgrad: true
 optimizer_name: Adam
 parity: true

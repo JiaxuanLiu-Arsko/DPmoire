@@ -1,0 +1,16 @@
+DFT_script: DFT_script.sh
+OUTCAR_collect_freq: 8
+POTCAR_dir: /home/users/jxliu/tools/pseudo_potentials/potpaw_PBE
+VASP_ML: True
+do_relaxation: False
+input_dir: ./input
+learn_script: Learn_script.sh
+n_nodes: 81
+n_sectors: 9
+script_dir: ./scripts
+test_dir: ./test
+username: jxliu
+work_dir: .
+sc: 2
+init_mlff: False
+d: 7

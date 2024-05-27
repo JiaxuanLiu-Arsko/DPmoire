@@ -1,14 +1,9 @@
 SYSTEM = C
 ISYM   = 0        ! no symmetry imposed
 NCORE = 4
-
 ! ab initio
-GGA      = BO
-PARAM1   = 0.1833333333
-PARAM2   = 0.22
-AGGAC    = 0.0
-LUSE_VDW = .TRUE.
-LASPH    = .TRUE.
+
+IVDW = 10
 
 PREC = A
 NELM = 128
@@ -16,10 +11,13 @@ NELMIN = 4
 ISMEAR = 0      
 SIGMA  = 0.03  ! smearing in eV
 EDIFF  = 1e-6
-ENCUT = 480
+ENCUT = 312
 LWAVE  = F
 LCHARG = F
+LREAL = A
 
+! MD
 IBRION = 2        !  GC minimizer
-NSW    = 100
-EDIFFG = -0.001
+NSW    = 300
+EDIFFG = -0.005
+ISIF   = 0        ! NpT

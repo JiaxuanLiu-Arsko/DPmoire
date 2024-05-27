@@ -4,6 +4,7 @@ import time
 from .parameters import Parameters
 from .envgen import Envgen
 from .shifter import Shifter
+import re
 
 class Minimizer:
 
@@ -48,16 +49,16 @@ class Minimizer:
             missions = 0
             for job in jobs:
                 missions += len(os.popen(f"squeue | grep {job}").readlines())
-        #see DPmoireTrain line 29.
-        #self.contToPos()
+        #see ml4tTrain line 29.
+        self.contToPos()
         
     def loadEnv(self):
         params = self.params
         shft = Shifter(param=params)
-        shft.shiftAll(outDir=params.workDir)
         envgen = Envgen(params=self.params)
         for i in range(self.nSecs):
             for j in range(self.nSecs):
+                shft.shift4Min(i=i, j=j, outDir=params.workDir)
                 kpoints = envgen.kpgenerator(params.latVec)
                 envgen.genPOTCAR(elements=params.elements, outDir=f"{params.workDir}/{i}_{j}")
                 envgen.genKPOINTS(kpoints, outDir=f"{params.workDir}/{i}_{j}")
@@ -70,8 +71,11 @@ class Minimizer:
                 outfile = open(f"{params.workDir}/{i}_{j}/POSCAR", "w")
                 with open(f"{params.workDir}/{i}_{j}/CONTCAR", "r") as infile:
                     lines = infile.readlines()
-                nLine = int(len(lines)/2) + 4
+                lines.pop()
+                nLine = int(len(lines)/2) + 5
                 for line in lines[0:nLine]:
+                    #subline = re.sub("F\s*F\s*T", "T T T", line)
+                    #subline = re.sub("Selective dynamics\n", "", subline)
                     outfile.write(line)
                 outfile.close()
                     

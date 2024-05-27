@@ -1,6 +1,5 @@
-from .shifter import Shifter
-from .envgen import Envgen
-from .parameters import Parameters
-from .minimizer import Minimizer
+from .structure_handler import StructureHandler
+from .env_handler import EnvironmentHandler
+from .config import Config
 
-__all__ = [Shifter, Envgen, Parameters, Minimizer]
+__all__ = [StructureHandler, EnvironmentHandler, Config]
