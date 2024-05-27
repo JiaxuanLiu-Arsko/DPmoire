@@ -4,6 +4,8 @@
 
 `DPmoire` requires the `nequip` package and its dependencies; please see the [NequIP installation instructions](https://github.com/mir-group/nequip#installation) for details.
 
+[Allegro](https://github.com/mir-group/allegro) is optional to be installed. It is a kind of updated version of `NequIP`, which allows you to use the MLFF through MPICH. 
+
 Once `nequip` is installed, you can install `DPmoire` from source by running:
 ```bash
 git clone https://github.com/JiaxuanLiu-Arsko/DPmoire.git

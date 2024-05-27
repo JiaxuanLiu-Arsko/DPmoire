@@ -26,9 +26,9 @@ def main(args=None):
     start_time = time.time()
     dataset = Dataset()
     md_handler = MDHandler(config=config)
+    env_handler = EnvironmentHandler(config=config)
     if args.mode == "all" or args.mode == "ab":
         work_dir = config["work_dir"]
-        env_handler = EnvironmentHandler(config=config)
         if config["init_mlff"]:
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 0)
             os.system(f"cp {config['script_dir']}/{config['DFT_script']} {work_dir}/init_mlff")
@@ -75,7 +75,7 @@ def main(args=None):
                 dataset.load_dataset_class(md_dataset)
                 print("Warninng! No MD_data.extxyz found, load MD data from ML_ABN files!")
         trainer = NequIPTrainer(config=config, dataset=dataset)
-        trainer.preprocess()
+        trainer.preprocess(RCUT=env_handler.find_RCUT())
         trainer.submit_training()
         trainer.postprocess()
         print(f"Training finished. Time cost = {time.time()-start_time} secs.")
