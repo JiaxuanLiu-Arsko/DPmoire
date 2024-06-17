@@ -6,9 +6,8 @@ POTCAR_dir: /home/users/jxliu/tools/pseudo_potentials/potpaw_PBE  #Diretory to a
 script_dir: ./scripts   #Prepared slurm scripts.
 input_dir: ./input      #Prepared VASP files and nequIP presets.
 work_dir: .             #Work directory for DPmoire.
-test_dir: ./test        #Currently have no use.
 n_nodes: 81             #Maximum 81 slurm jobs at the same time.
-username: jxliu         #Username to detect # of job.
+username: jxliu         #Username deprecated
 
 ############################ VASP SETTINGS ############################
 VASP_ML: True           #Use VASP_MLFF to collect data.
@@ -18,5 +17,8 @@ init_mlff: True         #Prepare a small MLFF for VASP to start, should be True 
 
 ############################ OTHER SETTINGS ############################
 sc: 2                   #construct a 2*2 supercell.
-d: 7                    #construct a structure with interlayer distance of 7
+d: 6                    #construct a structure with interlayer distance of 7
 n_sectors: 9            #shift by a grid of 9*9
+twist_val: True         #generate twisted structure to run validation set
+max_val_n: 5            #maximum n value of twist angle
+min_val_n: 4            #minimum n value of twist angle

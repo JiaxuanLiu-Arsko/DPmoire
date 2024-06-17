@@ -1,5 +1,5 @@
 import os, time
-
+import copy
 class DFTHandler:
     job_list = None
     n_nodes = None
@@ -8,7 +8,7 @@ class DFTHandler:
         if existing_job is None:
             self.job_list = []
         else:
-            self.job_list = existing_job
+            self.job_list = copy.deepcopy(existing_job)
         pass
         self.n_nodes = n_nodes
         self.script_name = script_name
@@ -25,7 +25,9 @@ class DFTHandler:
         else:
             return False
     
-    def check_job_list(self, job_list:list):
+    def check_job_list(self, job_list:list=None):
+        if job_list is None:
+            job_list = self.job_list 
         jobs_left = 0
         finished_list = []
         for i, job_id in enumerate(job_list):
@@ -36,20 +38,20 @@ class DFTHandler:
         finished_list.reverse()
         for idx in finished_list:
             job_list.pop(idx)
-        return jobs_left
+        return jobs_left, job_list
 
     def submit_job(self, work_dir:str):
         time.sleep(5)
         os.chdir(work_dir)
-        jobs_left = self.check_job_list(job_list=self.job_list)
+        jobs_left, _ = self.check_job_list(job_list=self.job_list)
         while jobs_left>self.n_nodes:
             time.sleep(30)
-            jobs_left = self.check_job_list(job_list=self.job_list)
+            jobs_left, _ = self.check_job_list(job_list=self.job_list)
         job_id = int(os.popen(f"sbatch {self.script_name}").readlines()[0].split()[-1])
         self.job_list.append(job_id)
 
     def wait_until_finished(self):
-        jobs_left = self.check_job_list(job_list=self.job_list)
+        jobs_left, _ = self.check_job_list(job_list=self.job_list)
         while jobs_left>0:
             time.sleep(30)
-            jobs_left = self.check_job_list(job_list=self.job_list)
+            jobs_left, _ = self.check_job_list(job_list=self.job_list)

@@ -6,7 +6,7 @@ setup(
     version="1.0.0",
     description="DPmoire is an open-source code for automatically train Machine Learning Forcefields for twisted bilayer materials",
     author="Jiaxuan Liu",
-    python_requires=">=3.7",
+    python_requires=">=3.10",
     packages=find_packages(include=["DPmoire", "DPmoire.*"]),
     entry_points={
         # make the scripts available as command line scripts

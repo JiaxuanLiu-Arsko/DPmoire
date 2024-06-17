@@ -12,16 +12,19 @@ class MLFFTrainer:
     learn_script = None
     dataset = None
     input_dir = None
-
+    val_dataset = None
     RCUT = None
     elements = None
 
-    def __init__(self, config:Config, dataset:Dataset):
+    def __init__(self, config:Config, dataset:Dataset, val_dataset:Dataset=None):
         self.work_dir = config["work_dir"] + "/main"
+        if not os.path.exists(self.work_dir):
+            os.mkdir(f"{self.work_dir}")
         self.learn_script = config["learn_script"]
         self.input_dir = config["input_dir"]
         self.script_dir = config["script_dir"]
         self.dataset = dataset
+        self.val_dataset = val_dataset
 
     def get_params(self, sc:int=2):
         step = int(self.dataset.n_configs/100)-1

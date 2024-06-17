@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-#SBATCH -N 1 ###
-#SBATCH -n 52 ###
+#SBATCH -N 2 ###
+#SBATCH -n 104 ###
 #SBATCH -A hmt03
 #SBATCH --partition=short
-#SBATCH --job-name=test_DPmoire
+#SBATCH --job-name=compare_vdw
 #SBATCH --output=./log
 #SBATCH --error=./err
 ### 使用的 gpu 卡数，与--gres=gpu:4 的数字一致
-NP=$((56))
+NP=$((104))
 ### 执行任务所需要加载的模块
 module load oneapi22.3
 ### 一些提示性输出

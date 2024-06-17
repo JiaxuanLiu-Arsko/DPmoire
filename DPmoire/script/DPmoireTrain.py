@@ -3,7 +3,7 @@ import argparse, os, yaml, time
 from ..preprocess import Config, EnvironmentHandler
 from ..data import Dataset
 from ..train import NequIPTrainer
-from ..dft import RelaxationHandler, MDHandler, DFTHandler
+from ..dft import RelaxationHandler, MDHandler, ValidationHandler
 from copy import deepcopy
 def main(args=None):
 
@@ -15,7 +15,7 @@ def main(args=None):
     )
 
     parser.add_argument(
-        "--mode", default="all", type=str, help="mode: all, ab, or train."
+        "--mode", default="all", type=str, help="mode: all, run, or train."
     )
 
     args = parser.parse_args(args=args)
@@ -25,38 +25,51 @@ def main(args=None):
     config = Config.from_yaml(args.config)
     start_time = time.time()
     dataset = Dataset()
-    md_handler = MDHandler(config=config)
+    val_dataset = Dataset()
+    job_list = []
     env_handler = EnvironmentHandler(config=config)
-    if args.mode == "all" or args.mode == "ab":
+    if args.mode == "all" or args.mode == "run":
         work_dir = config["work_dir"]
+        if config["twist_val"]:
+            angles = env_handler.gen_val_environment( config["min_val_n"], config['max_val_n'], f"{work_dir}/validation")
+            val_handler = ValidationHandler(config=config, angles=angles, val_dir=f"{work_dir}/validation")
+            val_handler.run_calculation()
+            _, job_list = val_handler.check_job_list()
         if config["init_mlff"]:
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 0)
             os.system(f"cp {config['script_dir']}/{config['DFT_script']} {work_dir}/init_mlff")
+            md_handler = MDHandler(config=config, existing_job=job_list)
             md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
             md_handler.wait_until_finished()
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 1)
             md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
-            md_handler.wait_until_finished()
-            os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
-            os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
+            _, job_list = md_handler.check_job_list()
         if config["do_relaxation"]:
             env_handler.gen_POSCAR(config["work_dir"])
             env_handler.gen_environment('rlx_INCAR', config["work_dir"])
-            rlx_handler = RelaxationHandler(config=config)
+            rlx_handler = RelaxationHandler(config=config, existing_job=job_list)
             rlx_handler.run_calculation()
             rlx_dataset = rlx_handler.postprocess()
             dataset.load_dataset_class(rlx_dataset)
-
             print(f"Relaxation finished. {time.time() - start_time}s consumed.")
             start_time = time.time()
         else:
             if os.path.exists(f"{work_dir}/rlx_data.extxyz"):
                 dataset.load_dataset_extxyz(f"{work_dir}/rlx_data.extxyz")
+        if config["init_mlff"]:
+            md_handler.wait_until_finished()
+            os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
+            os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
+            _, job_list = md_handler.check_job_list()
+
+        md_handler = MDHandler(config=config, existing_job=job_list)
         env_handler.gen_environment('MD_INCAR', config["work_dir"])
         md_handler.run_calculation()
         md_dataset = md_handler.postprocess()
         dataset.load_dataset_class(md_dataset)
-
+        val_handler.wait_until_finished()
+        val_dataset = val_handler.postprocess()
+        val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
         print(f"MD finished. {time.time() - start_time}s consumed.")
         start_time = time.time()
 
@@ -74,7 +87,11 @@ def main(args=None):
                 md_dataset = md_handler.make_dataset()
                 dataset.load_dataset_class(md_dataset)
                 print("Warninng! No MD_data.extxyz found, load MD data from ML_ABN files!")
-        trainer = NequIPTrainer(config=config, dataset=dataset)
+            if os.path.exists(f"{config['work_dir']}/valid.extxyz"):
+                val_dataset.load_dataset_extxyz(f"{config['work_dir']}/valid.extxyz")
+            else:
+                print("Warning! No valid.extxyz found!")
+        trainer = NequIPTrainer(config=config, dataset=dataset, val_dataset=val_dataset)
         trainer.preprocess(RCUT=env_handler.find_RCUT())
         trainer.submit_training()
         trainer.postprocess()

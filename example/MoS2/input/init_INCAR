@@ -3,12 +3,7 @@ ISYM   = 0        ! no symmetry imposed
 NCORE = 4
 
 ! ab initio
-GGA      = MK 
-PARAM1   = 0.1234 
-PARAM2   = 1.0
-AGGAC    = 0.0
-LUSE_VDW = .TRUE.
-LASPH    = .TRUE.
+IVDW=10
 
 PREC = A
 NELM = 128

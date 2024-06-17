@@ -3,9 +3,10 @@ import os,sys
 from .config import Config
 from ase.io.vasp import read_vasp, write_vasp
 from ase.constraints import FixedLine 
-from ase.build import make_supercell, sort
+from ase.build import make_supercell, sort, stack
 from ase import Atoms
 import copy
+from ._find_homo_twist import search_twist, adjust_atoms_d
 
 class StructureHandler:
 
@@ -122,4 +123,19 @@ class StructureHandler:
             for j in range(self.n_secs):
                 self.shift(i, j, out_dir, c_constrain=c_constrain, sc=sc)
 
+    def make_twist_struct(self, N_min, N_max, out_dir:str):
+        top_atoms = copy.deepcopy(self.top_atoms)
+        bot_atoms = copy.deepcopy(self.bot_atoms)
+        top_atoms, bot_atoms = adjust_atoms_d(top_atoms, bot_atoms, self.d)
+        angle_list, mat_list = search_twist(N_min, N_max)
+        out_atoms_list = []
+        for idx, mat in enumerate(mat_list):
+            top_sc = make_supercell(top_atoms, P=mat[0])
+            bot_sc = make_supercell(bot_atoms, P=mat[1])
+            out_atoms = stack(bot_sc, top_sc, maxstrain=None, reorder=True)
+            out_atoms_list.append(out_atoms)
+            if not os.path.exists(f"{out_dir}/{angle_list[idx]}/"):
+                os.mkdir(f"{out_dir}/{angle_list[idx]}/")
+            write_vasp(f"{out_dir}/{angle_list[idx]}/POSCAR", out_atoms)
+        return angle_list, out_atoms_list
 

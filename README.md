@@ -34,11 +34,14 @@ Several directories should be prepared before you start to train MLFF.
 
     - MD_monolayer_INCAR: INCAR for MD simulation of monolayer structures.
 
+    - val_INCAR: INCAR for runing validation set data.
+
     - ML_AB and ML_FF: Initial VASP MLFF files. Only required when `VASP_ML` was set to `True` and `init_mlff` was set to `False`.
 
     - vdw_kernel.bindat: VASP vdw Kernel files. See **Important technical remarks** section in [Nonlocal vdW-DF functionals](https://www.vasp.at/wiki/index.php/Nonlocal_vdW-DF_functionals)
 
     - bot_layer.poscar and top_layer.poscar: Unit cell POSCAR of bottom layer and bottom layer atoms. **The c axis of poscar should be large enough!**
+
   - scripts: A directory contains bash scripts to submit VASP and NequIP job in slurm system.
 
 ## Running DPmoire
@@ -95,9 +98,9 @@ Before you try to train another material, these files **must** be taken care of 
   - config.yaml for DPmoireTrain. Tag "d" is the approximate value of interlayer distance. The shifted structure will be generated according to this, and the cutoff of MLFF will also be selected by this.
 
 There's something the scripts will automatically configure:
-  - ENCUT of INCAR will be automatically taken care of by ENCUT=1.6\*ENMAX.
+  - ENCUT of INCAR will be automatically taken care of by ENCUT=$1.6 \times ENMAX$.
   - POTCAR will be automatically generated
-  - KPOINTS will be generated according to $n_{k_i}\cdot a_{i}>40$
+  - KPOINTS will be generated according to $n_{k_i}\cdot a_{i}\approx 40$
 
 
 Then it's ready to run a new train.
@@ -142,7 +145,11 @@ for i in range(n):
 
 If the temperature is fine (nothing printed), then the data should be good to use.
 
-To obtain the best performance, one should take the dataset as training set (for NequIP) and run another VASP calculation for some big angle twisted materials (with similar settings) and collect those data as validation set. Following script convert OUTCAR to extxyz format dataset:
+To obtain the best performance, MLFF should be trained on untwisted data and take some twisted structure as validation set. Currently, there're two ways. 
+  - 1) Set twist_val=True in config.yaml, and set approriate values for max_val_n and min_val_n, then DPmoire will do most thing for you. *(Only work when training a top_layer and bot_layer are the same material)*
+  - 2) Set twist_val=False and do as follow:
+
+Run another VASP calculation for some twisted structures (with similar settings) and collect those data as validation set. Following script convert OUTCAR to extxyz format dataset:
 
 ```python
 from DPmoire.data import Dataset
@@ -158,4 +165,4 @@ validation_dataset: ase
 validation_dataset_file_name: ./data/valid_set.extxyz
 n_val: 20
 ```
-according to your validation set. The n_train should be set to the number of data in dataset.extyz.
+according to your validation set.

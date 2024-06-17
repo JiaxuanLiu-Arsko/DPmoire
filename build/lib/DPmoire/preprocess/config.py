@@ -76,6 +76,6 @@ class Config(object):
         if not os.path.exists(f"{self.config_dict['input_dir']}/bot_layer.poscar"):
             raise Exception(f"bot_layer.poscar not in {self.config_dict['input_dir']}")
         if not os.path.exists(f"{self.config_dict['input_dir']}/rlx_INCAR"):
-            raise Exception(f"min_INCAR.poscar not in {self.config_dict['input_dir']}")
+            raise Exception(f"rlx_INCAR.poscar not in {self.config_dict['input_dir']}")
         if not os.path.exists(f"{self.config_dict['input_dir']}/MD_INCAR"):
             raise Exception(f"MD_INCAR.poscar not in {self.config_dict['input_dir']}")

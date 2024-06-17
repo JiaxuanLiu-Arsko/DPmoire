@@ -130,7 +130,6 @@ validation_dataset: ase
 wandb: false
 
 # project name in wandb
-wandb_project: aspirin
 
 # the same as python logging, e.g. warning, info, debug, error. case insensitive
 verbose: debug

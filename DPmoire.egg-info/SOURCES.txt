@@ -14,7 +14,9 @@ DPmoire/dft/MD_handler.py
 DPmoire/dft/__init__.py
 DPmoire/dft/dft_handler.py
 DPmoire/dft/rlx_handler.py
+DPmoire/dft/val_handler.py
 DPmoire/preprocess/__init__.py
+DPmoire/preprocess/_find_homo_twist.py
 DPmoire/preprocess/_keys.py
 DPmoire/preprocess/config.py
 DPmoire/preprocess/env_handler.py
