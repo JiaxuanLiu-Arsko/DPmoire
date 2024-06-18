@@ -3,7 +3,7 @@ ISYM   = 0        ! no symmetry imposed
 NCORE = 4
 
 ! ab initio
-IVDW=10
+IVDW=11
 
 PREC = A
 NELM = 128
@@ -19,7 +19,7 @@ LREAL = A
 ! MD
 
 IBRION = 0        ! MD (treat ionic dgr of freedom)
-NSW    = 10000    ! Number of ionic steps
+NSW    = 3000    ! Number of ionic steps
 POTIM  = 1      ! MD time step in fs
 MDALGO = 3                ! Langevin thermostat
 LANGEVIN_GAMMA   = 1      !Langevin  friction

@@ -30,7 +30,6 @@ class ValidationHandler(DFTHandler):
     def make_dataset(self) -> Dataset:
         val_dataset = Dataset()
         for angle in self.angles:
-            print(f"{self.val_dir}/{angle}/OUTCAR")
             val_dataset.load_dataset_OUTCAR(infile_str=f"{self.val_dir}/{angle}/OUTCAR", freq=self.collect_freq)
         return val_dataset
                     

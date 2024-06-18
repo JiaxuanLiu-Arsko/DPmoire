@@ -44,6 +44,10 @@ def main(args=None):
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 1)
             md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
             _, job_list = md_handler.check_job_list()
+            md_handler.wait_until_finished()
+            os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
+            os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
+            _, job_list = md_handler.check_job_list()
         if config["do_relaxation"]:
             env_handler.gen_POSCAR(config["work_dir"])
             env_handler.gen_environment('rlx_INCAR', config["work_dir"])
@@ -56,11 +60,6 @@ def main(args=None):
         else:
             if os.path.exists(f"{work_dir}/rlx_data.extxyz"):
                 dataset.load_dataset_extxyz(f"{work_dir}/rlx_data.extxyz")
-        if config["init_mlff"]:
-            md_handler.wait_until_finished()
-            os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
-            os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
-            _, job_list = md_handler.check_job_list()
 
         md_handler = MDHandler(config=config, existing_job=job_list)
         env_handler.gen_environment('MD_INCAR', config["work_dir"])

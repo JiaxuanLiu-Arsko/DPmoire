@@ -3,7 +3,7 @@ ISYM   = 0        ! no symmetry imposed
 NCORE = 4
 
 ! ab initio
-IVDW=10
+IVDW=11
 
 PREC = A
 NELM = 128
