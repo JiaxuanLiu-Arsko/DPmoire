@@ -22,7 +22,6 @@ class RelaxationHandler(DFTHandler):
             for j in range(self.n_secs):
                 os.system(f"cp {self.script_dir}/{self.script_name} {self.work_dir}/{i}_{j}/")
                 self.submit_job(work_dir=f"{self.work_dir}/{i}_{j}")
-        self.wait_until_finished()
 
     def postprocess(self):
         self.CONT_to_POS()
