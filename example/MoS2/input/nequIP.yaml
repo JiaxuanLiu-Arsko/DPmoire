@@ -183,15 +183,13 @@ loss_coeffs:
 
 # optimizer
 # default optimizer is Adam 
-optimizer_name: Adam
-optimizer_params:
-  amsgrad: false
-  betas: !!python/tuple
+optimizer_name: Adam                                                          
+optimizer_amsgrad: true
+optimizer_betas: !!python/tuple
   - 0.9
   - 0.999
-  eps: 1.0e-08
-  weight_decay: 0.
-
+optimizer_eps: 1.0e-08
+optimizer_weight_decay: 0
 # lr scheduler, drop lr if no improvement for 50 epochs
 # on-plateau, reduce lr by factory of lr_scheduler_factor if metrics_key hasn't improved for lr_scheduler_patience epoch
 lr_scheduler_name: ReduceLROnPlateau
