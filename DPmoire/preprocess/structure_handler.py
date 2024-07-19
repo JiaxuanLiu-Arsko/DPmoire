@@ -102,7 +102,7 @@ class StructureHandler:
         atoms_sc = sort(make_supercell(prim=atoms, P=[[sc, 0, 0], [0, sc, 0], [0, 0, 1]]))
         top_idx, bot_idx = self.find_layer_idx(atoms_sc)
         if c_constrain:
-            cons = FixedLine([top_idx[0], bot_idx[0]], direction=atoms_sc.cell.array[2]/atoms_sc.cell.lengths()[2])
+            cons = FixedLine([top_idx[0], top_idx[-1], bot_idx[0], bot_idx[-1]], direction=atoms_sc.cell.array[2]/atoms_sc.cell.lengths()[2])
             atoms_sc.set_constraint(cons)
         return atoms_sc
     
