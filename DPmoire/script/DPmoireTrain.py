@@ -28,6 +28,7 @@ def main(args=None):
     val_dataset = Dataset()
     job_list = []
     env_handler = EnvironmentHandler(config=config)
+    md_handler = MDHandler(config=config)
     if args.mode == "all" or args.mode == "run":
         work_dir = config["work_dir"]
         if config["twist_val"]:
