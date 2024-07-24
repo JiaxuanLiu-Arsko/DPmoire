@@ -1,6 +1,6 @@
 import numpy as np
 import re
-
+from ase.units import kJ, m
 from ase import Atoms
 from ase.io import write as asewrite
 from ase.io import read as aseread
@@ -104,9 +104,15 @@ class Dataset:
             stress_lines = para[9].split("\n")
             xx_yy_zz = stress_lines[4].split()
             xy_yz_zx = stress_lines[8].split()
-            stress_tensor = np.array([[float(xx_yy_zz[0]), float(xy_yz_zx[0]), float(xy_yz_zx[2])],
+            
+            # Fixed Convention & Units. Stress of nequIP (ASE) is defined in eV/(Ang^3), while VASP is defined in 
+            # KBar and a REVERSED sign. See ase.io.vasp_parsers.vasp_outcar_parsers.convert_vasp_outcar_stress()
+            # and https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py#L346-L349
+            bar = 100*kJ/(m^3)
+            kbar = 1000*bar
+            stress_tensor = -np.array([[float(xx_yy_zz[0]), float(xy_yz_zx[0]), float(xy_yz_zx[2])],
                                       [float(xy_yz_zx[0]), float(xx_yy_zz[1]), float(xy_yz_zx[1])],
-                                      [float(xy_yz_zx[2]), float(xy_yz_zx[1]), float(xx_yy_zz[2])]])
+                                      [float(xy_yz_zx[2]), float(xy_yz_zx[1]), float(xx_yy_zz[2])]])*kbar
 
             curr_atoms = Atoms(symbols=symbol, cell=lat_vec, positions=pos,pbc=True)
             calculator = SinglePointCalculator(curr_atoms, energy=energy, forces=f, stress=stress_tensor)
