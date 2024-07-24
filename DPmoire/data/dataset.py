@@ -100,10 +100,19 @@ class Dataset:
                 for str in lines.split():
                     fP.append(float(str))
                 f.append(fP)
+
+            stress_lines = para[9].split("\n")
+            xx_yy_zz = stress_lines[4].split()
+            xy_yz_zx = stress_lines[8].split()
+            stress_tensor = np.array([[float(xx_yy_zz[0]), float(xy_yz_zx[0]), float(xy_yz_zx[2])],
+                                      [float(xy_yz_zx[0]), float(xx_yy_zz[1]), float(xy_yz_zx[1])],
+                                      [float(xy_yz_zx[2]), float(xy_yz_zx[1]), float(xx_yy_zz[2])]])
+
             curr_atoms = Atoms(symbols=symbol, cell=lat_vec, positions=pos,pbc=True)
-            calculator = SinglePointCalculator(curr_atoms, energy=energy, forces=f)
+            calculator = SinglePointCalculator(curr_atoms, energy=energy, forces=f, stress=stress_tensor)
             curr_atoms.set_calculator(calculator)
             self.data.append(curr_atoms)
+
 
     def load_dataset_OUTCAR(self, infile_str, freq):
         '''
@@ -136,7 +145,9 @@ class Dataset:
         if isinstance(structure, Atoms):
             stored_structure = Atoms(positions=structure.get_positions(), symbols=structure.get_chemical_symbols(), 
                                      cell=structure.get_cell(), pbc=structure.get_pbc())
-            calc = SinglePointCalculator(stored_structure, energy=structure.get_total_energy(), forces=structure.get_forces())
+            calc = SinglePointCalculator(stored_structure, energy=structure.get_potential_energy(apply_constraint=False), 
+                                         forces=structure.get_forces(apply_constraint=False), 
+                                         stress=structure.get_stress(apply_constraint=False))
             stored_structure.calc = calc
             self.data.append(stored_structure)
             self.n_configs += 1

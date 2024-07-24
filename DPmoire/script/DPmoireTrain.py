@@ -65,9 +65,10 @@ def main(args=None):
         md_handler.run_calculation()
         md_dataset = md_handler.postprocess()
         dataset.load_dataset_class(md_dataset)
-        val_handler.wait_until_finished()
-        val_dataset = val_handler.postprocess()
-        val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
+        if config["twist_val"]:
+            val_handler.wait_until_finished()
+            val_dataset = val_handler.postprocess()
+            val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
         print(f"MD finished. {time.time() - start_time}s consumed.")
         start_time = time.time()
 
