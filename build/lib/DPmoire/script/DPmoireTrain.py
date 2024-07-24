@@ -28,6 +28,7 @@ def main(args=None):
     val_dataset = Dataset()
     job_list = []
     env_handler = EnvironmentHandler(config=config)
+    md_handler = MDHandler(config=config)
     if args.mode == "all" or args.mode == "run":
         work_dir = config["work_dir"]
         if config["twist_val"]:
@@ -46,7 +47,6 @@ def main(args=None):
             job_list = md_handler.wait_until_finished()
             os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
             os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
-            _, job_list = md_handler.check_job_list()
         if config["do_relaxation"]:
             env_handler.gen_POSCAR(config["work_dir"])
             env_handler.gen_environment('rlx_INCAR', config["work_dir"])
@@ -66,9 +66,10 @@ def main(args=None):
         md_handler.run_calculation()
         md_dataset = md_handler.postprocess()
         dataset.load_dataset_class(md_dataset)
-        val_handler.wait_until_finished()
-        val_dataset = val_handler.postprocess()
-        val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
+        if config["twist_val"]:
+            val_handler.wait_until_finished()
+            val_dataset = val_handler.postprocess()
+            val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
         print(f"MD finished. {time.time() - start_time}s consumed.")
         start_time = time.time()
 
