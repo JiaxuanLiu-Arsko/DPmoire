@@ -19,7 +19,6 @@ setup(
         "numpy",
         "ase",
         "tqdm",
-        "nequip",
         "pyyaml",
     ],
     zip_safe=True,

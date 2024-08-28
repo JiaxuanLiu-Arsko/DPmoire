@@ -30,4 +30,6 @@ DPmoire/test/test.py
 DPmoire/train/__init__.py
 DPmoire/train/mlff_trainer.py
 DPmoire/train/nequip_trainer.py
+DPmoire/utils/__init__.py
+DPmoire/utils/graph_plot.py
 test/test_dft_handler.py

@@ -15,7 +15,7 @@ def main(args=None):
     )
 
     parser.add_argument(
-        "--mode", default="all", type=str, help="mode: all, run, or train."
+        "--mode", default="all", type=str, help="mode: all, run, train, or build_val."
     )
 
     args = parser.parse_args(args=args)
@@ -29,6 +29,17 @@ def main(args=None):
     job_list = []
     env_handler = EnvironmentHandler(config=config)
     md_handler = MDHandler(config=config)
+    if args.mode == "build_val":
+        if not config["twist_val"]:
+            raise ValueError("twist_val in config.yaml is not True!")
+        work_dir = config["work_dir"]
+        angles = env_handler.gen_val_environment( config["min_val_n"], config['max_val_n'], f"{work_dir}/validation")
+        val_handler = ValidationHandler(config=config, angles=angles, val_dir=f"{work_dir}/validation")
+        val_handler.run_calculation()
+        _, job_list = val_handler.check_job_list()
+        val_handler.wait_until_finished()
+        val_dataset = val_handler.postprocess()
+        val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
     if args.mode == "all" or args.mode == "run":
         work_dir = config["work_dir"]
         if config["twist_val"]:
