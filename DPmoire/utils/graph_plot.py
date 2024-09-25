@@ -8,7 +8,7 @@ from ase.io.vasp import *
 from ase.build import sort, rotate, make_supercell
 from ase import Atoms
 
-def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral_r', interpolator=LinearNDInterpolator):
+def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral_r', interpolator=LinearNDInterpolator, vrange=None):
 
     rotate(atoms, atoms.get_cell()[0], [1, 0, 0], atoms.get_cell()[2], [0, 0, 1], rotate_cell=True)
     atoms = make_supercell(atoms, P=np.array([[sc, 0, 0], [0, sc, 0], [0, 0, 1]]))
@@ -41,8 +41,12 @@ def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral
     for idx in drop_idx:
         points_d.pop(idx)
     points_d=np.array(points_d)
-    vmax = np.max(points_d[:, 2])
-    vmin = np.min(points_d[:, 2])
+    if vrange is None:
+        vmax = np.max(points_d[:, 2])
+        vmin = np.min(points_d[:, 2])
+    else:
+        vmax = vrange[1]
+        vmin = vrange[0]
     cmap = mpl.colormaps[colormap]
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     fig = plt.figure()
@@ -62,7 +66,7 @@ def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral
     ax.set_ylim(-lim, lim)
     return ax
 
-def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str, scale=None, width=None, colormap='Spectral_r'):
+def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str, scale=None, width=None, colormap='Spectral_r', vrange=None):
 
     rotate(end_config, end_config.get_cell()[0], [1, 0, 0], end_config.get_cell()[2], [0, 0, 1], rotate_cell=True)
     cell = end_config.get_cell().array
@@ -103,8 +107,12 @@ def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str
     positions_arr = np.array(positions)
     colors = []
     cmap = mpl.colormaps[colormap]
-    vmin = np.min(intra_disp_arr[:, 2])
-    vmax = np.max(intra_disp_arr[:, 2])
+    if vrange is None:
+        vmin = 0
+        vmax = np.max(intra_disp_arr[:, 2])
+    else:
+        vmax = vrange[1]
+        vmin = vrange[0]
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
     for length in intra_disp_arr[:, 2]:
@@ -124,7 +132,7 @@ def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str
     ax.set_aspect(1)
     fcb = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax,)
     fcb.set_label('Intralayer displacement (Å)')
-    fcb.set_ticks(ticks=[vmin, vmax], labels=[f"0.00", "{0:.2f}".format(vmax)], fontsize=15)
+    fcb.set_ticks(ticks=[vmin, vmax], labels=[f"0.000", "{0:.3f}".format(vmax)], fontsize=15)
 
     lim = np.linalg.norm(cell[0])/4*sc
     ax.set_xlim(-lim, lim)

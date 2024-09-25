@@ -8,6 +8,8 @@ DPmoire.egg-info/entry_points.txt
 DPmoire.egg-info/requires.txt
 DPmoire.egg-info/top_level.txt
 DPmoire.egg-info/zip-safe
+DPmoire/calculator/__init__.py
+DPmoire/calculator/allegro_calculator.py
 DPmoire/data/__init__.py
 DPmoire/data/dataset.py
 DPmoire/dft/MD_handler.py
