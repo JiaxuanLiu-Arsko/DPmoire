@@ -47,6 +47,7 @@ def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral
     else:
         vmax = vrange[1]
         vmin = vrange[0]
+    print(vmax, vmin)
     cmap = mpl.colormaps[colormap]
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     fig = plt.figure()
@@ -54,13 +55,13 @@ def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral
 
     if s is None:
         s = 150000/len(top_idx)
-        print("s: ", s)
+        #print("s: ", s)
 
     ax.scatter(points_d[:, 0], points_d[:, 1], color=cmap(norm(points_d[:, 2])), s=s)
     ax.set_aspect(1)
-    fcb = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
-    fcb.set_label('Interlayer distance(Å)')
-    fcb.set_ticks(ticks=[vmin, vmax], labels=["{0:.2f}".format(vmin), "{0:.2f}".format(vmax)], fontsize=15)
+#    fcb = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
+#    fcb.set_label('Interlayer distance(Å)')
+#    fcb.set_ticks(ticks=[vmin, vmax], labels=["{0:.2f}".format(vmin), "{0:.2f}".format(vmax)], fontsize=15)
     lim = np.linalg.norm(cell[0])/4
     ax.set_xlim(-lim, lim)
     ax.set_ylim(-lim, lim)
@@ -114,25 +115,25 @@ def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str
         vmax = vrange[1]
         vmin = vrange[0]
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-
+    print(vmax, vmin)
     for length in intra_disp_arr[:, 2]:
         colors.append(cmap(norm(length)))
 
     if scale is None:
         scale = vmax*np.sqrt(len(top_idx))*sc/3
-        print(scale)
+        #print(scale)
 
     if width is None:
         width = 1/(np.sqrt(len(top_idx))*sc)/3.3 #0.006
-        print(width)
+        #print(width)
 
     ax.quiver(positions_arr[:, 0], positions_arr[:, 1],  intra_disp_arr[:, 0], intra_disp_arr[:, 1], 
             pivot="mid", color=colors, scale=scale, width=width)
 
     ax.set_aspect(1)
-    fcb = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax,)
-    fcb.set_label('Intralayer displacement (Å)')
-    fcb.set_ticks(ticks=[vmin, vmax], labels=[f"0.000", "{0:.3f}".format(vmax)], fontsize=15)
+    #fcb = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax,)
+    #fcb.set_label('Intralayer displacement (Å)')
+    #fcb.set_ticks(ticks=[vmin, vmax], labels=[f"0.000", "{0:.3f}".format(vmax)], fontsize=15)
 
     lim = np.linalg.norm(cell[0])/4*sc
     ax.set_xlim(-lim, lim)
