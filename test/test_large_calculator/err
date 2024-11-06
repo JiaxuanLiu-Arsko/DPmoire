@@ -1,0 +1,6 @@
+[W init.cpp:855] Warning: Use _jit_set_fusion_strategy, bailout depth is deprecated. Setting to (STATIC, 2) (function operator())
+/home/jxliu/anaconda3/envs/nequIP/lib/python3.10/site-packages/nequip/utils/_global_options.py:69: UserWarning: Setting the GLOBAL value for jit bailout depth to `2` which is different than the previous value of `12`
+  warnings.warn(
+/data/jxliu/DPmoire/DPmoire/DPmoire/calculator/allegro_calculator.py:169: UserWarning: Trying to use chemical symbols as NequIP type names; this may not be correct for your model! To avoid this warning, please provide `species_to_type_name` explicitly.
+  warnings.warn(
+slurmstepd: error: *** JOB 241606 ON gpuh8001 CANCELLED AT 2024-10-29T22:03:42 ***

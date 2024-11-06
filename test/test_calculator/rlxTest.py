@@ -10,7 +10,7 @@ import numpy as np
 
 tbg = read_vasp(f'./3.89.vasp')     
 #设置机器学习势
-tbg.calc = calc.AllegroLargeCellCalculator.from_deployed_model(f"./WSe2_ivdw11_0528.pth", device="cuda", nx=2, ny=2)
+tbg.calc = calc.AllegroLargeCellCalculator.from_deployed_model(f"./WSe2_ivdw11_0528.pth", device="cuda", nx=2, ny=2, n_jobs_neigh=1)
 
 optimizer = FIRE(atoms=tbg, trajectory=f"./data.traj", logfile=f"./rlx.log")
 optimizer.run(fmax=0.005)
