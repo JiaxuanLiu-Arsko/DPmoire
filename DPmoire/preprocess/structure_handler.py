@@ -5,8 +5,10 @@ from ase.io.vasp import read_vasp, write_vasp
 from ase.constraints import FixedLine 
 from ase.build import make_supercell, sort, stack
 from ase import Atoms
+from ase.spacegroup import get_spacegroup
 import copy
 from ._find_homo_twist import search_twist, adjust_atoms_d
+import spglib
 
 class StructureHandler:
 
@@ -23,11 +25,13 @@ class StructureHandler:
     bot_indexes = None
     new_struct = None
     d = None
+    work_dir = None
 
     def __init__(self, config:Config|dict=None):
         if isinstance(config, (Config, dict)):
             self.n_secs = config["n_sectors"]
             self.in_dir = config["input_dir"]
+            self.work_dir = config["work_dir"]
             self.d = config["d"]
         else:
             raise Exception(f"Unknown type of Conifg:{type(config)}")
@@ -54,8 +58,38 @@ class StructureHandler:
             else:
                 bot_idx.append(i)
         return top_idx, bot_idx
-
     
+    def find_sym_reduced_stackings(self, prec:float=0.0001):
+        sym_op_top = spglib.get_symmetry((self.top_atoms.get_cell(), self.top_atoms.get_scaled_positions(),
+                                        self.top_atoms.get_atomic_numbers()),
+                                    symprec=prec)
+        sym_op_bot = spglib.get_symmetry((self.bot_atoms.get_cell(), self.bot_atoms.get_scaled_positions(),
+                                        self.bot_atoms.get_atomic_numbers()),
+                                    symprec=prec)
+        rotat = []
+        trans = []
+        for i, (rot_t, trans_t) in enumerate(zip(sym_op_top["rotations"], sym_op_top["translations"])):
+            for j, (rot_b, trans_b) in enumerate(zip(sym_op_bot["rotations"], sym_op_bot["translations"])):
+                if np.linalg.norm((rot_t-rot_b).reshape(9)) > prec:
+                    continue
+                rotat.append(rot_t)
+                trans.append(trans_b-trans_t)
+        stcks = []
+        reduced = np.zeros((self.n_secs, self.n_secs))
+        for i in range(self.n_secs):
+            for j in range(self.n_secs):
+                if reduced[i, j] != 0:
+                    continue
+                for r, t in zip(rotat, trans):
+                    shift_vec = np.dot(r, [i, j, 0]) + t * self.n_secs
+                    shift_vec_round = np.array([round(vec) for vec in shift_vec])
+                    if np.linalg.norm(shift_vec-shift_vec_round)<0.001:
+                        reduced[shift_vec_round[0]%self.n_secs, shift_vec_round[1]%self.n_secs] = 1
+                stcks.append([i, j])
+        stcks = np.array(stcks)
+        np.savetxt(f"{self.work_dir}/sym_reduced_stackings.txt", stcks)
+        return stcks
+
     def build_new_struct(self, d:float):
         '''
         combine new structures combining top/bot layer atoms
@@ -118,9 +152,15 @@ class StructureHandler:
         atoms_sc = self.shift_atoms(i, j, c_constrain, sc)
         write_vasp(f"{out_dir}/{i}_{j}/POSCAR", atoms=atoms_sc)
 
-    def shift_all(self, out_dir:str, c_constrain:bool=True, sc:int = 2):
-        for i in range(self.n_secs):
-            for j in range(self.n_secs):
+    def shift_all(self, out_dir:str, c_constrain:bool=True, sc:int = 2, stackings = None):
+        if stackings is None:
+            for i in range(self.n_secs):
+                for j in range(self.n_secs):
+                    self.shift(i, j, out_dir, c_constrain=c_constrain, sc=sc)
+        else:
+            for stck in stackings:
+                i = stck[0]
+                j = stck[1]
                 self.shift(i, j, out_dir, c_constrain=c_constrain, sc=sc)
 
     def make_twist_struct(self, N_min, N_max, out_dir:str):

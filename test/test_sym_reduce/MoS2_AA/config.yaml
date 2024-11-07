@@ -1,0 +1,31 @@
+
+# DPmoireTrain will automatically change the ENCUT, ML_RCUT, LANGEVIN_GAMMA 
+# in INCAR and elements in nequIP.yaml according to elements in POSCAR.
+# So only POSCAR in origin_dir and test_dir need to be change in two different
+# learning proccess.
+
+# DPmoireTrain config.yaml --runMode {all(default), ab or train} should run in main node to submit jobs.
+
+# DPmoireTest config.yaml --runMode {run(default) or get}. When enabling runMode=run, it should be submitted 
+# to a computational node with vasp module loaded(Detailed in Testscript.sh). When enabling runMode=get, it can
+# run under main node (because there's no any actual MD or DFT computation).
+
+DFT_script: DFT_script.sh
+OUTCAR_collect_freq: 8
+POTCAR_dir: /home/apps/vasp6.3.0/potpaw_PBE
+VASP_ML: True
+do_relaxation: False
+input_dir: ./input
+learn_script: Learn_script.sh
+n_nodes: 81
+n_sectors: 9
+script_dir: ./scripts
+username: jxliu
+work_dir: ./
+sc: 2
+init_mlff: False
+d: 7
+twist_val: False
+max_val_n: 5
+min_val_n: 3
+sym_reduce: True
