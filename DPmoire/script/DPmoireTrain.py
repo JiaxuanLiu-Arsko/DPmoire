@@ -32,7 +32,7 @@ def main(args=None):
     if config["sym_reduce"]:
         stackings = env_handler.find_sym_reduced_stackings()
     else:
-        stackings = np.array([[i, j] for i in range(config["n_secs"]) for j in range(config["n_secs"])])
+        stackings = np.array([[i, j] for i in range(config["n_sectors"]) for j in range(config["n_sectors"])])
     md_handler = MDHandler(config=config, stackings=stackings)
     if args.mode == "build_val":
         if not config["twist_val"]:
