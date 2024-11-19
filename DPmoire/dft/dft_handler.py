@@ -55,7 +55,7 @@ class DFTHandler:
             existing_jobs_left, _ = self.check_job_list(job_list=self.existing_job)
             jobs_left, _ = self.check_job_list(job_list=self.job_list)
             jobs_left += existing_jobs_left
-        job_id = int(os.popen(f"sbatch {self.script_name}").readlines()[0].split()[-1])
+        job_id = os.popen(f"sbatch {self.script_name}").readlines()[0].split()[-1]
         self.job_list.append(job_id)
 
     def wait_until_finished(self):
