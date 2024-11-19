@@ -17,7 +17,7 @@ class DFTHandler:
     def postprocess(self):
         pass
 
-    def check_job(self, job_id:int):
+    def check_job(self, job_id:str):
         if len(os.popen(f"squeue | grep {job_id}").readlines())>0:
             return True
         else:
@@ -27,7 +27,7 @@ class DFTHandler:
         squeue_return = os.popen(f"squeue {additional_str}").readlines()
         job_ids_return = []
         for lines in squeue_return[1:]:
-            job_ids_return.append(int(lines.split()[0]))
+            job_ids_return.append(lines.split()[0])
         return job_ids_return
 
     def check_job_list(self, job_list:list=None):

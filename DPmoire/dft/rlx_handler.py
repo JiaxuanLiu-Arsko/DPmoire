@@ -42,6 +42,14 @@ class RelaxationHandler(DFTHandler):
             rlx_dataset.load_dataset_OUTCAR(infile_str=f"{self.work_dir}/{i}_{j}/OUTCAR", freq=self.collect_freq)
         return rlx_dataset
     
+    def save_rlx_results(self) -> None:
+        for stck in self.stackings:
+            i = stck[0]
+            j = stck[1]
+            os.system(f"cp {self.work_dir}/{i}_{j}/OUTCAR {self.work_dir}/{i}_{j}/OUTCAR-relax")
+            os.system(f"cp {self.work_dir}/{i}_{j}/OSZICAR {self.work_dir}/{i}_{j}/OSZICAR-relax")
+            os.system(f"cp {self.work_dir}/{i}_{j}/XDATCAR {self.work_dir}/{i}_{j}/XDATCAR-relax")
+
     def CONT_to_POS(self):
         for stck in self.stackings:
             i = stck[0]
