@@ -2,7 +2,9 @@
 #
 #SBATCH -N 1 ###
 #SBATCH -n 1 ###
-#SBATCH -A hmt03
-
-sleep 1
-echo "job finished"
+#SBATCH --job-name=DPmoire
+#SBATCH --partition=short
+#SBATCH --output=./log
+#SBATCH --error=./err
+#SBATCH --exclude hpcc037
+echo "finished"

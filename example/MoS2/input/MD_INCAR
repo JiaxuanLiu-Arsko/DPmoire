@@ -9,29 +9,29 @@ PREC = A
 NELM = 128
 NELMIN = 4
 ISMEAR = 0      
-SIGMA  = 0.03  ! smearing in eV
-EDIFF  = 1e-5
-ENCUT = 480
+SIGMA  = 0.03
+EDIFF  = 1e-6
+ENCUT = 480     ! This line will be changed by DPmoire to 1.6*ENMAX.
 LWAVE  = F
 LCHARG = F
 LREAL = A
 
 ! MD
 
-IBRION = 0        ! MD (treat ionic dgr of freedom)
-NSW    = 3000    ! Number of ionic steps
-POTIM  = 1      ! MD time step in fs
-MDALGO = 3                ! Langevin thermostat
-LANGEVIN_GAMMA   = 1      !Langevin  friction
+IBRION = 0
+NSW    = 10000  
+POTIM  = 1
+MDALGO = 3
+LANGEVIN_GAMMA = 1
 TEBEG  = 100              
 TEEND = 330
-ISIF   = 2        ! NVT
+ISIF   = 2     ! This line should not be changed
 
 ! machine learning
 ML_LMLFF  = T
 ML_ISTART = 1
-ML_RCUT1 = 6
-ML_RCUT2 = 6
+ML_RCUT1 = 6    ! This line will be changed by DPmoire to appropriate value.
+ML_RCUT2 = 6    ! This line will be changed by DPmoire to appropriate value.
 ML_CTIFOR = 0.00002
 ML_CDOUB = 1.5
 ML_MCONF_NEW = 3

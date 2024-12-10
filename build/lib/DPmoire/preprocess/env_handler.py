@@ -23,6 +23,7 @@ class EnvironmentHandler:
     bot_elements = None
     lat_vec = None
     sc = None
+    sym_reduce = None
     def __init__(self, config:Config|dict, k_generator=None):
         if not isinstance(config, (Config, dict)):
             raise Exception("Unknown config type!")
@@ -33,6 +34,7 @@ class EnvironmentHandler:
         self.n_secs = config["n_sectors"]
         self.input_dir = config["input_dir"]
         self.POTCAR_dir = config["POTCAR_dir"]
+        self.sym_reduce = config["sym_reduce"]
         self.struct_handler = StructureHandler(config=config)
         self.lat_vec = self.struct_handler.new_struct.get_cell().array
         self.elements = self.get_elements(self.struct_handler.new_struct)
@@ -46,6 +48,9 @@ class EnvironmentHandler:
         self.ENCUT = np.max(ensf)
         self.RCUT1 = self.find_RCUT()
         self.RCUT2 = self.find_RCUT()
+
+    def find_sym_reduced_stackings(self, prec:float=0.00001):
+        return self.struct_handler.find_sym_reduced_stackings(prec=prec)
 
     def find_RCUT(self):
         max_a = np.max([self.struct_handler.top_atoms.get_cell().lengths()[0], 
@@ -64,8 +69,8 @@ class EnvironmentHandler:
                 elements.append(item)
         return elements
 
-    def gen_POSCAR(self, out_dir:str):
-        self.struct_handler.shift_all(out_dir, True, self.sc)
+    def gen_POSCAR(self, out_dir:str, stackings:list=None):
+        self.struct_handler.shift_all(out_dir, True, self.sc, stackings)
 
     def gen_init_environment(self, out_dir:str, layer:int):
         if not os.path.isdir(out_dir):
@@ -107,9 +112,21 @@ class EnvironmentHandler:
             os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir}/{angle}")
         return twist_angles
 
-    def gen_environment(self, INCAR, out_dir:str):
-        for i in range(self.n_secs):
-            for j in range(self.n_secs):
+    def gen_environment(self, INCAR, out_dir:str, stackings:list=None):
+        if stackings is None:
+            for i in range(self.n_secs):
+                for j in range(self.n_secs):
+                    out_dir_ij = f'{out_dir}/{i}_{j}'
+                    self.gen_INCAR(out_dir_ij, f'{self.input_dir}/{INCAR}')
+                    self.gen_KPOINTS(out_dir_ij)
+                    self.gen_POTCAR(self.elements, out_dir_ij)
+                    os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir_ij}")
+                    os.system(f"cp {self.input_dir}/ML_AB {out_dir_ij}")
+                    os.system(f"cp {self.input_dir}/ML_FF {out_dir_ij}")
+        else:
+            for stck in stackings:
+                i = stck[0]
+                j = stck[1]
                 out_dir_ij = f'{out_dir}/{i}_{j}'
                 self.gen_INCAR(out_dir_ij, f'{self.input_dir}/{INCAR}')
                 self.gen_KPOINTS(out_dir_ij)

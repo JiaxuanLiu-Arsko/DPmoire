@@ -5,6 +5,7 @@ from ..data import Dataset
 from ..train import NequIPTrainer
 from ..dft import RelaxationHandler, MDHandler, ValidationHandler
 from copy import deepcopy
+import numpy as np
 def main(args=None):
 
     parser = argparse.ArgumentParser(
@@ -28,7 +29,11 @@ def main(args=None):
     val_dataset = Dataset()
     job_list = []
     env_handler = EnvironmentHandler(config=config)
-    md_handler = MDHandler(config=config)
+    if config["sym_reduce"]:
+        stackings = env_handler.find_sym_reduced_stackings()
+    else:
+        stackings = np.array([[i, j] for i in range(config["n_sectors"]) for j in range(config["n_sectors"])])
+    md_handler = MDHandler(config=config, stackings=stackings)
     if args.mode == "build_val":
         if not config["twist_val"]:
             raise ValueError("twist_val in config.yaml is not True!")
@@ -36,7 +41,7 @@ def main(args=None):
         angles = env_handler.gen_val_environment( config["min_val_n"], config['max_val_n'], f"{work_dir}/validation")
         val_handler = ValidationHandler(config=config, angles=angles, val_dir=f"{work_dir}/validation")
         val_handler.run_calculation()
-        _, job_list = val_handler.check_job_list()
+        _, job_list = val_handler.get_running_jobs()
         val_handler.wait_until_finished()
         val_dataset = val_handler.postprocess()
         val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
@@ -46,11 +51,11 @@ def main(args=None):
             angles = env_handler.gen_val_environment( config["min_val_n"], config['max_val_n'], f"{work_dir}/validation")
             val_handler = ValidationHandler(config=config, angles=angles, val_dir=f"{work_dir}/validation")
             val_handler.run_calculation()
-            _, job_list = val_handler.check_job_list()
+            _, job_list = val_handler.get_running_jobs()
         if config["init_mlff"]:
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 0)
             os.system(f"cp {config['script_dir']}/{config['DFT_script']} {work_dir}/init_mlff")
-            md_handler = MDHandler(config=config, existing_job=job_list)
+            md_handler = MDHandler(config=config, existing_job=job_list, stackings=stackings)
             md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
             md_handler.wait_until_finished()
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 1)
@@ -59,9 +64,9 @@ def main(args=None):
             os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
             os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
         if config["do_relaxation"]:
-            env_handler.gen_POSCAR(config["work_dir"])
-            env_handler.gen_environment('rlx_INCAR', config["work_dir"])
-            rlx_handler = RelaxationHandler(config=config, existing_job=job_list)
+            env_handler.gen_POSCAR(config["work_dir"], stackings=stackings)
+            env_handler.gen_environment('rlx_INCAR', config["work_dir"], stackings=stackings)
+            rlx_handler = RelaxationHandler(config=config, existing_job=job_list, stackings=stackings)
             rlx_handler.run_calculation()
             job_list = rlx_handler.wait_until_finished()
             rlx_dataset = rlx_handler.postprocess()
@@ -72,8 +77,8 @@ def main(args=None):
             if os.path.exists(f"{work_dir}/rlx_data.extxyz"):
                 dataset.load_dataset_extxyz(f"{work_dir}/rlx_data.extxyz")
 
-        md_handler = MDHandler(config=config, existing_job=job_list)
-        env_handler.gen_environment('MD_INCAR', config["work_dir"])
+        md_handler = MDHandler(config=config, existing_job=job_list, stackings=stackings)
+        env_handler.gen_environment('MD_INCAR', config["work_dir"], stackings=stackings)
         md_handler.run_calculation()
         md_dataset = md_handler.postprocess()
         dataset.load_dataset_class(md_dataset)

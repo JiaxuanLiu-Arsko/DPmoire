@@ -1,5 +1,5 @@
 SYSTEM = C
-ISYM   = 0        ! no symmetry imposed
+ISYM   = 0 
 NCORE = 4
 
 ! ab initio
@@ -9,26 +9,26 @@ PREC = A
 NELM = 128
 NELMIN = 4
 ISMEAR = 0      
-SIGMA  = 0.03  ! smearing in eV
-EDIFF  = 1e-5
-ENCUT = 310.4268
+SIGMA  = 0.03
+EDIFF  = 1e-6
+ENCUT = 310.4268    !This line will be changed by DPmoire to 1.6*ENMAX
 LWAVE  = F
 LCHARG = F
 LREAL = A
 
 ! MD
-IBRION = 0        ! MD (treat ionic dgr of freedom)
-NSW    = 5000    ! no of ionic steps
-POTIM  = 1      ! MD time step in fs
-MDALGO = 3                ! Langevin thermostat
+IBRION = 0
+NSW    = 10000
+POTIM  = 1
+MDALGO = 3
 LANGEVIN_GAMMA = 1 
 LANGEVIN_GAMMA_L = 1
-TEBEG  = 30              ! temperature
+TEBEG  = 30
 TEEND = 330
-ISIF   = 3        ! NVT
+ISIF   = 4
 ! machine learning
 ML_LMLFF  = T
 ML_ISTART = 0
-ML_RCUT1 = 6
-ML_RCUT2 = 6
+ML_RCUT1 = 6     ! This line will be changed by DPmoire to appropriate value.
+ML_RCUT2 = 6     ! This line will be changed by DPmoire to appropriate value.
 ML_CTIFOR = 0.002

@@ -2,7 +2,7 @@
 CONFIG_KEYS = ["n_sectors", "work_dir", "input_dir", "POTCAR_dir", "n_nodes", \
          "script_dir", "DFT_script", "username", "learn_script", \
         "do_relaxation", "OUTCAR_collect_freq", "VASP_ML", "init_mlff",\
-        "twist_val", "max_val_n", "min_val_n", "d", "sc", "sym_reduce"]
+        "twist_val", "max_val_n", "min_val_n", "d", "sc", "sym_reduce", "auto_resub"]
 DEFAULTS = {
     "n_sectors":9,
     "work_dir":None,
@@ -22,5 +22,6 @@ DEFAULTS = {
     "twist_val":False, 
     "max_val_n":0,
     "min_val_n":0, 
-    "sym_reduce":False
+    "sym_reduce":False,
+    "auto_resub":True
 }

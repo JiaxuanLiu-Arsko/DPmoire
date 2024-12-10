@@ -19,7 +19,7 @@ setup(
         "numpy",
         "ase",
         "tqdm",
-        "pyyaml",
+        "pyyaml"
     ],
     zip_safe=True,
 )

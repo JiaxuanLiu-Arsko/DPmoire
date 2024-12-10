@@ -1,5 +1,5 @@
 SYSTEM = C
-ISYM   = 0        ! no symmetry imposed
+ISYM   = 0
 NCORE = 4
 ! ab initio
 
@@ -9,15 +9,15 @@ PREC = A
 NELM = 128
 NELMIN = 4
 ISMEAR = 0      
-SIGMA  = 0.03  ! smearing in eV
+SIGMA  = 0.03 
 EDIFF  = 1e-6
-ENCUT = 312
+ENCUT = 312     ! This line will be changed by DPmoire to 1.6*ENMAX.
 LWAVE  = F
 LCHARG = F
 LREAL = A
 
 ! MD
-IBRION = 2        !  GC minimizer
+IBRION = 2
 NSW    = 300
 EDIFFG = -0.005
-ISIF   = 0        ! NpT
+ISIF   = 4

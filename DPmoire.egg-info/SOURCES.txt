@@ -15,6 +15,7 @@ DPmoire/data/dataset.py
 DPmoire/dft/MD_handler.py
 DPmoire/dft/__init__.py
 DPmoire/dft/dft_handler.py
+DPmoire/dft/dft_handler_old.py
 DPmoire/dft/rlx_handler.py
 DPmoire/dft/val_handler.py
 DPmoire/preprocess/__init__.py
@@ -22,7 +23,6 @@ DPmoire/preprocess/_find_homo_twist.py
 DPmoire/preprocess/_keys.py
 DPmoire/preprocess/config.py
 DPmoire/preprocess/env_handler.py
-DPmoire/preprocess/shifter_old.py
 DPmoire/preprocess/structure_handler.py
 DPmoire/script/DPmoireTest.py
 DPmoire/script/DPmoireTrain.py
@@ -34,4 +34,3 @@ DPmoire/train/mlff_trainer.py
 DPmoire/train/nequip_trainer.py
 DPmoire/utils/__init__.py
 DPmoire/utils/graph_plot.py
-test/test_dft_handler.py

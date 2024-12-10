@@ -11,7 +11,7 @@ class ValidationHandler(DFTHandler):
     collect_freq = None
     val_dir = None
     def __init__(self, config:Config|dict, val_dir, angles, existing_job:list=None, collect_freq:int=1):
-        super().__init__(script_name="val_script.sh", n_nodes=config["n_nodes"], existing_job=existing_job)
+        super().__init__(script_name="val_script.sh", n_nodes=config["n_nodes"], existing_job=existing_job, auto_resub=False)
         self.script_dir = config["script_dir"]
         self.collect_freq = collect_freq
         self.angles = angles

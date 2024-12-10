@@ -2,23 +2,23 @@
 ############################ ENVIRONMENT SETTINGS ############################
 DFT_script: DFT_script.sh       #Name of VASP submit script.
 learn_script: Learn_script.sh   #Name of nequIP submit script.
-POTCAR_dir: /home/users/jxliu/tools/pseudo_potentials/potpaw_PBE  #Diretory to access POTCAR
+POTCAR_dir: /diretory_to_pseudo_potentials/pseudo_potentials/potpaw_PBE  #Diretory to access POTCAR
 script_dir: ./scripts   #Prepared slurm scripts.
 input_dir: ./input      #Prepared VASP files and nequIP presets.
 work_dir: .             #Work directory for DPmoire.
 n_nodes: 81             #Maximum 81 slurm jobs at the same time.
-username: jxliu         #Username deprecated
+username: jxliu         #Username, deprecated setting, not used anymore.
 
-############################ VASP SETTINGS ############################
-VASP_ML: True           #Use VASP_MLFF to collect data.
+############################ CALCULATION SETTINGS ############################
+VASP_ML: True           #Use VASP_MLFF in MD process.
 OUTCAR_collect_freq: 8  #Collect 1 data every 8 ionic steps in OUTCAR.
-do_relaxation: True     #Do relaxation before MD, should be True for the first run.
+do_relaxation: True     #Do relaxation before MD, should be True for the first run. Only set to False when restarting.
 init_mlff: True         #Prepare a small MLFF for VASP to start, should be True for the first run.
-
-############################ OTHER SETTINGS ############################
-sc: 2                   #construct a 2*2 supercell.
-d: 6                    #construct a structure with interlayer distance of 7
+sc: 2                   #construct 2*2 supercells.
+d: 6                    #construct structures with interlayer distance of 7
 n_sectors: 9            #shift by a grid of 9*9
 twist_val: True         #generate twisted structure to run validation set
 max_val_n: 5            #maximum n value of twist angle
 min_val_n: 4            #minimum n value of twist angle
+symm_reduce: True       #Reduce shift structures according to symmetry.
+auto_resub: False       #Auto re-submit failed slurm jobs when building dataset. 

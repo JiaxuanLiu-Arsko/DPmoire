@@ -41,7 +41,7 @@ def main(args=None):
         angles = env_handler.gen_val_environment( config["min_val_n"], config['max_val_n'], f"{work_dir}/validation")
         val_handler = ValidationHandler(config=config, angles=angles, val_dir=f"{work_dir}/validation")
         val_handler.run_calculation()
-        _, job_list = val_handler.check_job_list()
+        _, job_list = val_handler.get_running_jobs()
         val_handler.wait_until_finished()
         val_dataset = val_handler.postprocess()
         val_dataset.save_extxyz(f"{work_dir}/valid.extxyz")
@@ -51,7 +51,7 @@ def main(args=None):
             angles = env_handler.gen_val_environment( config["min_val_n"], config['max_val_n'], f"{work_dir}/validation")
             val_handler = ValidationHandler(config=config, angles=angles, val_dir=f"{work_dir}/validation")
             val_handler.run_calculation()
-            _, job_list = val_handler.check_job_list()
+            _, job_list = val_handler.get_running_jobs()
         if config["init_mlff"]:
             env_handler.gen_init_environment(f"{work_dir}/init_mlff", 0)
             os.system(f"cp {config['script_dir']}/{config['DFT_script']} {work_dir}/init_mlff")
