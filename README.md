@@ -244,6 +244,8 @@ with open("findTemp.dat", "w") as outfile:
                 findTemp(i, j, outfile)
             except:
                 pass
+findTemp("top", "layer", outfile)
+findTemp("bot", "layer", outfile)
 ```
 
 If temperatures exceed 1000 K, they will be printed to the console, indicating potential issues with the data.
@@ -253,7 +255,7 @@ You can go to the directories that with problem, re-submit DFT calculation manua
 After the calculation is done, you should **remove the MD_data.extxyz in your `work_dir`** and [train again](#training-on-existing-datasets) as described in [here](#tips-for-a-restart-job)
 
 ## MLFFs for twisted bilayer TMDs
-We trained MLFF for AA and AB stacked twisted MX $_2$(M=Mo, W; X=S, Se, Te). The trained MLFF could be found in [this page]()
+We trained MLFF for AA and AB stacked twisted MX $_2$(M=Mo, W; X=S, Se, Te). The trained MLFF could be found in [this page](https://github.com/JiaxuanLiu-Arsko/DPmoire/releases/tag/v1.0.0)
 
 ## Example of relaxation
 
