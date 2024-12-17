@@ -1,0 +1,29 @@
+clear
+units metal
+dimension 3
+boundary p p p
+processors * * 1
+atom_style atomic
+#---------- Structure Settings ------------------
+read_data 7.34_rigid.dat
+neigh_modify one 3000
+neigh_modify every 1 delay 0 check yes
+
+pair_style	allegro3232
+pair_coeff	* * MoS2_AA.pth Mo S
+
+# ---------- Dump Settings ----------------------- 
+variable fn atom sqrt(fx*fx+fy*fy+fz*fz)    #Norm of Force
+compute fm all reduce max v_fn              #Max Force
+reset_timestep 0
+thermo 10
+thermo_style custom step ke pe temp fmax c_fm
+dump dump1 all atom 10 dump.lammpstrj
+variable fma equal c_fm
+
+#----------- Simulation Settings -----------------
+fix 1 all halt 1 v_fma < 0.001
+min_style fire
+minimize 0.0 1e-3 1000 1000
+
+write_data 7.34_relaxed.dat

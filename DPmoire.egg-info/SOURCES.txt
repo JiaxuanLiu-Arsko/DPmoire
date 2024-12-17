@@ -15,7 +15,6 @@ DPmoire/data/dataset.py
 DPmoire/dft/MD_handler.py
 DPmoire/dft/__init__.py
 DPmoire/dft/dft_handler.py
-DPmoire/dft/dft_handler_old.py
 DPmoire/dft/rlx_handler.py
 DPmoire/dft/val_handler.py
 DPmoire/preprocess/__init__.py

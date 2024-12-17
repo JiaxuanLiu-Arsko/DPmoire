@@ -2,14 +2,9 @@
 
 DPmoire is an open-source tool designed to construct accurate machine learning force fields (MLFFs) for moiré systems. 
 
-An initial MLFF will firstly be generated on the monolayer structure to ensure stability in MD simulations for the bilayer system. DPmoire will build non-twisted bilayer structures with different stacking, relaxed these structures and ran MD simulation with VASP MLFF module to build training set. An initial MLFF was generated in advance to ensure the stability. During the relaxation, the x and y coordinate of an atom from each layer are kept unchanged. Then we relaxed the twisted structures with DFT to generate the test set. Finally, the MLFF is trained on the collected datasets.
-
-![Fig_1](./images/Fig_1.pdf)
+![Fig_2](./images/Fig_2.png)
 
 DPmoire is structured into four functional modules. Firstly, as provided the unit cell structures of each layer, DP- moire.preprocess module will automatically combine two layers and generate shifted structures of a 2 $\times$ 2 super- cell. The twisted structure for building test set will also be prepared. The preprocess module will take care of the input files for VASP according to the provided templates. After that, the DPmoire.dft module will submit VASP calculation jobs through slurm system. When all the cal- culation is done, the DFT-calculated data in ML_ABN and OUTCAR files will be collected by DPmoire.data module. Then, DPmoire.data will generate the train- ing set file (data.extxyz) and test set file (valid.extxyz). This format can be directly read by Allegro and NequIP packages. DPmoire.train module will modify the system- dependent settings in configuration file according to given template for training Allegro or NequIP MLFF, and sub- mit the training job. After the training is done, the trained MLFF can be used in ASE or LAMMPS to perform structural relaxation.
-
-
-![Fig_2](./images/Fig_2.pdf)
 
 ## Table of Contents
 
@@ -29,8 +24,8 @@ DPmoire is structured into four functional modules. Firstly, as provided the uni
   - [Loss of the Training Set Does Not Decrease](#loss-of-the-training-set-does-not-decrease)
     - [Case I](#i-check-incar-templates-settings)
     - [Case II](#ii-check-the-temperature-during-md-simulation)
-  - [Loss of the Test Set Does Not Decrease](#loss-of-the-test-set-does-not-decrease)
-    - [Case I]()
+- [MLFFs for twisted bilayer TMDs](#mlffs-for-twisted-bilayer-tmds)
+- [Example of relaxation]()
 - [Additional Resources](#additional-resources)
 
 ## Prerequisites
@@ -57,24 +52,29 @@ pip install .
 
 ### Example Setup
 
-A ready-to-run example is available in the `examples/MoS2` directory. This example provides a comprehensive template to guide you through configuring and running DPmoire for MoS₂ simulations.
+A ready-to-run example is available in the [examples/MoS2](examples/MoS2) directory. This example provides a comprehensive template to guide you through configuring and running DPmoire for MoS₂ simulations.
+
+Note: Check  
 
 ### Configuration File
 
-DPmoire requires a configuration file in `.yaml` format to control its operations. An example configuration with detailed comments can be found at `examples/MoS2/config.yaml`.
+DPmoire requires a configuration file in `.yaml` format to control its operations. An example configuration with detailed comments can be found at [examples/MoS2/config.yaml](examples/MoS2/config.yaml).
 
 Here list some important tags:
   - **VASP_ML**: `True/False` Typically it should be True, it will greatly improve the quality of collected Dataset.
   - **do_relaxation**: `True/False` Do relaxation before performing MD simulation. If you are running in this directory for the first time and have not done relaxation before, this tag is recommanded to be True. If you are restarting from relaxed structures, you could set this tag to False.
   - **init_mlff**: `True/False` Build an initial MLFF before runing MD simulation. This tag **should be True** if you are running in this directory for the first time and **did not have ML_AB and ML_FF in `input_dir`**. If you had run this materials with same configuration here or else where, you can copy the ML_AB and ML_FF to `input_dir` and set this tag to False.
   - **symm_reduce**: `True/False` Reduce the shift vectors according to symmetry of the crystal structure. Recommand to be true since this tag can greatly reduce the computational cost.
-  - **auto_resub**: `True/False` Automatically re-submit slurm jobs when they are failed/cancelled. You should carefully check your Slurm scripts and make sure everything is fine about the Slurm systems. Otherwise it might repeatedly resubmit a failed job.
-  - **n_sectors**:  `int value` Number of grid points to shift. If you set this to 9, DPmoire will calculate $9\times9$ structures (before reducing symmetry) with differet in-plane shift. Typically, the larger value of this tag should improve the quality of dataset.
+  - **auto_resub**: `True/False` Automatically re-submit slurm jobs when they are failed/cancelled. Before turning on this tag, You should carefully check your Slurm scripts.
+  - **twist_val**: `True/False` Generate twist structures to build a validation set. If this tag is set to True, DPmoire will generate twisted structures and do DFT calculation according to contents in `val_INCAR` to generate test set.
+  - **max_val_n**:  `int value`: maximum n value of generated twist structure. n=1 corresponds to 21.97°, n=2 is 13.17°, n=3 is 9.43°, n=4 is 7.34°, n=5 is 6.08°, ...
+  - **min_val_n**:  `int value`: minimum n value of generated twist structure. We recommand setting **min_val_n** $\geq$ 3.
+  - **n_sectors**:  `int value` Number of grid points to shift. If you set this to 9, DPmoire will calculate $9\times9$ structures (before reducing symmetry) with differet in-plane shift. Typically, larger **n_sectors** should improve the quality of dataset.
   - **sc**:  `int value` The size of supercells used in calculation. If you set sc to 2, DPmoire will use $2 \times 2$ supercell to calculate.
-  - **d**:  `float value` Initial interlayer distance measured by averaged position of each layers in c direction. This tag will affect generated rigid structure and the **cutoff radius of VASP_MLFF** (ML_RCUT1 & ML_RCUT2 in INCAR) set by DPmoire. It will also affect the rigid interlayer distance of test set and further have impact on the quality of test set. Please carefully set **d** to a reasonable value.
+  - **d**:  `float value` Initial interlayer distance measured by averaged position of each layers in c direction. This tag will affect generated rigid structure and the **cutoff radius of VASP_MLFF** (ML_RCUT1 & ML_RCUT2 in INCAR) set by DPmoire. It will also affect the rigid interlayer distance of test set and further have impact on the quality of test set. Please set **d** to a reasonable value.
 
 
-In normal situation, preset values for "CALCULATION SETTINGS" in example should work fine (you should still adjust "ENVIRONMENT SETTINGS" to fit your configuration.). If you are trying to get a better performance, you could try setting larger number of **n_sectors**.
+In normal situation, preset values for "CALCULATION SETTINGS" in example should work fine (you should still adjust "ENVIRONMENT SETTINGS" to fit your own system). If you are trying to get a better performance, you could try setting larger number of **n_sectors**.
 
 ### Directory Structure and Required Files
 
@@ -116,7 +116,7 @@ cd ./example/MoS2
 nohup DPmoireTrain ./config.yaml &
 ```
 
-Alternatively, to run all processes in one command:
+Or equivalently,
 
 ```bash
 nohup DPmoireTrain ./config.yaml --mode all &
@@ -126,7 +126,7 @@ This will initiate DPmoire as a background job, submitting calculation and learn
 
 ### Generating Datasets Only
 
-If you prefer to generate datasets without submitting training jobs, use the following command:
+If you prefer to only run the DFT calculation to generate datasets without submitting training jobs, use the following command:
 
 ```bash
 nohup DPmoireTrain ./config.yaml --mode run &
@@ -150,43 +150,6 @@ nohup DPmoireTrain ./config.yaml --mode train &
 ```
 
 DPmoire will search for `rlx_data.extxyz` and `MD_data.extxyz`. If `MD_data.extxyz` is absent, it will attempt to reconstruct the dataset from `ML_AB` or `OUTCAR` files generated during VASP calculations.
-
-
-
-### Optimizing MLFF Performance
-
-For optimal performance, train the MLFF using untwisted data and reserve some twisted structures as a validation set. Currently, there are two approaches:
-
-1. **Automated Validation Set:**
-
-   - Set `twist_val: True` in `config.yaml`.
-   - Specify appropriate values for `max_val_n` and `min_val_n`.
-   - DPmoire will automatically handle the validation set generation.
-   - *Note: This method only works when both `top_layer` and `bot_layer` are the same material.*
-
-2. **Manual Validation Set:**
-
-   - Set `twist_val: False` in `config.yaml`.
-   - Perform an additional VASP calculation for some twisted structures with similar settings.
-   - Collect the data from these calculations as the validation set.
-   - Convert the `OUTCAR` files to `extxyz` format using the following script:
-
-     ```python
-     from DPmoire.data import Dataset
-
-     dataset = Dataset()
-     dataset.load_dataset_OUTCAR("./OUTCAR", 1)
-     dataset.save_extxyz("./valid.extxyz")
-     print(f"Number of configurations: {dataset.n_configs}")
-     ```
-
-   - Update `work_dir/main/nequip.yaml` with the validation set details:
-
-     ```yaml
-     validation_dataset: ase
-     validation_dataset_file_name: ./data/valid_set.extxyz
-     n_val: 20
-     ```
 
 ### Validation Set Configuration
 
@@ -230,13 +193,6 @@ When you are restarting the job in an old directory, there is something you shou
    - Remove/move/rename *.extxyz  in `work_dir`, otherwise DPmoire will grub the data from thesefiles.
    - Use [mode==train](#training-on-existing-datasets) to restart DPmoire
 
-## Additional Resources
-
-- [NequIP GitHub Repository](https://github.com/mir-group/nequip)
-- [Allegro GitHub Repository](https://github.com/mir-group/allegro)
-- [VASP Documentation](https://www.vasp.at/wiki/index.php/Main_Page)
-- [Slurm Documentation](https://slurm.schedmd.com/documentation.html)
-
 ## Possible Issues
 
 ### Loss of the Training Set Does Not Decrease
@@ -249,7 +205,7 @@ The first thing to do in this situation is to check if your VASP settings in INC
 
 #### II: Check the temperature during MD simulation
 
-If case I does not work for you, then you should check the temperature during the MD simulation. VASP MLFF module can be unstable sometimes and will run into strange structures. Though generating initial MLFF in advance (as DPmoire do) can greatly reduce the risk, there might still be a chance to have this problem.
+If case I does not work for you, then you should check the temperature during the MD simulation. VASP MLFF module can be unstable sometimes and will run into strange structures. Though generating initial MLFF in advance (as DPmoire does) can greatly reduce the risk, there might still be a chance to have this problem.
 
 You can check the temperature during the MD simulation to find this issue. In normal situation, the highest temperature can be slightly higher then preset (e.g. 330K preset but 580K highest during the run). If in some trajectories, the temperature exceeds 1000K, there must be a problem.
 
@@ -296,4 +252,18 @@ You can go to the directories that with problem, re-submit DFT calculation manua
 
 After the calculation is done, you should **remove the MD_data.extxyz in your `work_dir`** and [train again](#training-on-existing-datasets) as described in [here](#tips-for-a-restart-job)
 
+## MLFFs for twisted bilayer TMDs
+We trained MLFF for AA and AB stacked twisted MX $_2$(M=Mo, W; X=S, Se, Te). The trained MLFF could be found in [this page]()
 
+## Example of relaxation
+
+We provide examples of using generated MLFFs to relax twisted structures. 
+ - For relaxation using ASE, see [here](./example/relaxation_examples/ase_relaxation/tutorial.ipynb).
+ - For relaxation using LAMMPS, see see [here](./example/relaxation_examples/lammps_relaxation/tutorial.ipynb)
+
+## Additional Resources
+
+- [NequIP GitHub Repository](https://github.com/mir-group/nequip)
+- [Allegro GitHub Repository](https://github.com/mir-group/allegro)
+- [VASP Documentation](https://www.vasp.at/wiki/index.php/Main_Page)
+- [Slurm Documentation](https://slurm.schedmd.com/documentation.html)

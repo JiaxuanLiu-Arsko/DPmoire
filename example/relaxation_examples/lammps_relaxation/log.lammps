@@ -1,0 +1,111 @@
+LAMMPS (2 Aug 2023 - Update 3)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+clear
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+units metal
+dimension 3
+boundary p p p
+processors * * 1
+atom_style atomic
+#---------- Structure Settings ------------------
+read_data 7.34_rigid.dat
+Reading data file ...
+  triclinic box = (0 0 0) to (24.639964 21.338836 30) with tilt (-12.319982 -2.311096e-08 1.5983935e-07)
+WARNING: Triclinic box skew is large. LAMMPS will run inefficiently. (src/domain.cpp:220)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  366 atoms
+  read_data CPU = 0.004 seconds
+neigh_modify one 3000
+neigh_modify every 1 delay 0 check yes
+
+pair_style	allegro3232
+pair_coeff	* * MoS2_AA.pth Mo S
+
+# ---------- Dump Settings -----------------------
+variable fn atom sqrt(fx*fx+fy*fy+fz*fz)    #Norm of Force
+compute fm all reduce max v_fn              #Max Force
+reset_timestep 0
+thermo 10
+thermo_style custom step ke pe temp fmax c_fm
+dump dump1 all atom 10 dump.lammpstrj
+variable fma equal c_fm
+
+#----------- Simulation Settings -----------------
+fix 1 all halt 1 v_fma < 0.001
+min_style fire
+minimize 0.0 1e-3 1000 1000
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 3000, page size: 100000
+  master list distance cutoff = 10.448822
+  ghost atom cutoff = 10.448822
+  binsize = 5.2244108, bins = 8 5 6
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair allegro3232, perpetual
+      attributes: full, newton on, ghost
+      pair build: full/bin/ghost
+      stencil: full/ghost/bin/3d
+      bin: standard
+  Parameters for fire:
+    dmax  delaystep dtgrow dtshrink alpha0 alphashrink tmax tmin   integrator   halfstepback   abcfire  
+     0.1     20      1.1     0.5     0.25     0.99      10  0.02 eulerimplicit      yes          no     
+Per MPI rank memory allocation (min/avg/max) = 3.874 | 3.874 | 3.874 Mbytes
+   Step         KinEng         PotEng          Temp           Fmax           c_fm     
+         0   0             -2730.268       0              0.17352862     0.17377869   
+        10   0.041277558   -2730.3253      0.87489612     0.13808183     0.13817888   
+        20   0.11460211    -2730.4051      2.4290424      0.064534936    0.06455708   
+        30   0.16298555    -2730.472       3.454551       0.039786655    0.039793203  
+        40   0.37426165    -2730.7002      7.9326414      0.037417988    0.037417989  
+        50   1.13611       -2731.4969      24.080354      0.036140455    0.036140455  
+        60   1.3175862     -2732.4319      27.926824      0.036987212    0.037088948  
+        70   0.00059677328 -2732.6054      0.012648874    0.012747903    0.01281196   
+        80   0.00011689757 -2732.6056      0.0024776957   0.0046864095   0.0048373452 
+        90   0.00044930559 -2732.606       0.009523231    0.003446596    0.0035496177 
+       100   0.0013323912  -2732.6069      0.028240622    0.0030796633   0.0031661684 
+       110   0.004167455   -2732.6099      0.088331055    0.0025262884   0.0025290859 
+       120   0.00090050267 -2732.6112      0.019086553    0.002762568    0.002841948  
+Fix halt condition for fix-id 1 met on step 126 with value 0.0006602915217237032 (src/fix_halt.cpp:237)
+       126   8.4669468e-07 -2732.6112      1.7946069e-05  0.00056081886  0.00065994596
+Loop time of 91.8111 on 1 procs for 126 steps with 366 atoms
+
+60.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = walltime limit reached
+  Energy initial, next-to-last, final = 
+     -2730.26795530319  -2732.61124515533  -2732.61122703552
+  Force two-norm initial, final = 2.288269 0.0030660099
+  Force max component initial, final = 0.17352862 0.00056081886
+  Final line search alpha, max atom move = 0 0
+  Iterations, force evaluations = 126 130
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 91.775     | 91.775     | 91.775     |   0.0 | 99.96
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.0035561  | 0.0035561  | 0.0035561  |   0.0 |  0.00
+Output  | 0.012651   | 0.012651   | 0.012651   |   0.0 |  0.01
+Modify  | 0.014142   | 0.014142   | 0.014142   |   0.0 |  0.02
+Other   |            | 0.005397   |            |       |  0.01
+
+Nlocal:            366 ave         366 max         366 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1554 ave        1554 max        1554 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        65550 ave       65550 max       65550 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 65550
+Ave neighs/atom = 179.09836
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_data 7.34_relaxed.dat
+System init for write_data ...
+Total wall time: 0:01:34

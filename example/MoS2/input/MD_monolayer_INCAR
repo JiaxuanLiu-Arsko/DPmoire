@@ -11,7 +11,7 @@ NELMIN = 4
 ISMEAR = 0      
 SIGMA  = 0.03
 EDIFF  = 1e-6
-ENCUT = 310.4268    !This line will be changed by DPmoire to 1.6*ENMAX
+ENCUT = 480    !This line will be changed by DPmoire to 1.6*ENMAX
 LWAVE  = F
 LCHARG = F
 LREAL = A
@@ -23,7 +23,7 @@ POTIM  = 1
 MDALGO = 3
 LANGEVIN_GAMMA = 1 
 LANGEVIN_GAMMA_L = 1
-TEBEG  = 30
+TEBEG  = 100
 TEEND = 330
 ISIF   = 4
 ! machine learning

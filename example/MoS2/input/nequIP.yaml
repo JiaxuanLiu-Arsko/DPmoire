@@ -29,13 +29,10 @@ default_dtype: float32
 # tell nequip which modules to build
 model_builders:
  - allegro.model.Allegro
- # the typical model builders from `nequip` can still be used:
  - PerSpeciesRescale
- - ForceOutput
+ - StressForceOutput
  - RescaleEnergyEtc
- - initialize_from_state
 
-initial_model_state: /home/jxliu/worktable/MachineLearning/Hetero_Struct/train_nequIP/MoTe2_MoTe2/main_1209/result/old_model/last_model.pth
 # radial cutoff in length units
 r_max: 12.160758808411353
 
@@ -147,7 +144,7 @@ batch_size: 5
 validation_batch_size: 1
 
 # stop training after _ number of epochs, we set a very large number here, it won't take this long in practice and we will use early stopping instead
-max_epochs: 1000000
+max_epochs: 200
 
 # learning rate, we found values between 0.002 and 0.0005 to work best - this is often one of the most important hyperparameters to tune
 learning_rate: 0.001
@@ -176,10 +173,11 @@ ema_use_num_updates: true
 # if you use peratommseloss, then this is already in a per-atom normalized space (both E/F are per-atom quantities)
 # in that case, 1:1 works best usually
 loss_coeffs:
-  forces: 1.
-  total_energy:          
-    - 1.
-    - PerAtomMSELoss
+  forces: 10.0
+  total_energy:
+  - 1.0
+  - PerAtomMSELoss
+  stress: 150.0
 
 # optimizer
 # default optimizer is Adam 
@@ -204,4 +202,4 @@ early_stopping_lower_bounds:
   LR: 1.0e-5
 
 early_stopping_patiences:
-  validation_loss: 100
+  validation_loss: 40
