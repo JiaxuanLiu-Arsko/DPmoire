@@ -10,6 +10,7 @@ DPmoire.egg-info/top_level.txt
 DPmoire.egg-info/zip-safe
 DPmoire/calculator/__init__.py
 DPmoire/calculator/allegro_calculator.py
+DPmoire/calculator/moire_phono.py
 DPmoire/data/__init__.py
 DPmoire/data/dataset.py
 DPmoire/dft/MD_handler.py

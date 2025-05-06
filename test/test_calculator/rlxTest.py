@@ -1,6 +1,5 @@
 from ase.optimize.fire import FIRE               #弛豫用的优化器，模拟退火
-from ase.optimize.fire2 import FIRE2
-from ase.filters import FrechetCellFilter
+#from ase.filters import FrechetCellFilter
 import DPmoire.calculator.allegro_calculator as calc
 import nequip.ase.nequip_calculator as calc_n
 from ase.io.vasp import write_vasp, read_vasp    #读取/写入POSCAR

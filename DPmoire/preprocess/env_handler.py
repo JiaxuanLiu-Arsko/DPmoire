@@ -46,8 +46,12 @@ class EnvironmentHandler:
             ens.append(os.popen(f"cat {config['POTCAR_dir']}/{element}/POTCAR|grep ENMAX").readlines()[0].split()[2].split(";")[0]) 
         ensf = [float(ens[k]) for k in range(len(ens))]
         self.ENCUT = np.max(ensf)
-        self.RCUT1 = self.find_RCUT()
-        self.RCUT2 = self.find_RCUT()
+        if config["r_cut"] <0 :
+            self.RCUT1 = self.find_RCUT()
+            self.RCUT2 = self.find_RCUT()
+        else:
+            self.RCUT1 = config["r_cut"]
+            self.RCUT2 = config["r_cut"]
 
     def find_sym_reduced_stackings(self, prec:float=0.00001):
         return self.struct_handler.find_sym_reduced_stackings(prec=prec)

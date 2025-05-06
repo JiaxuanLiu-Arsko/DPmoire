@@ -14,6 +14,7 @@ from ase.stress import full_3x3_to_voigt_6_stress
 from nequip.data import AtomicData, AtomicDataDict
 from nequip.data.transforms import TypeMapper
 import nequip.scripts.deploy
+import nequip.ase.nequip_calculator
 
 
 def split_lattice(atoms, nx, ny, nz, rcut):
@@ -156,6 +157,8 @@ class AllegroLargeCellCalculator(Calculator):
 
         # build typemapper
         type_names = metadata[nequip.scripts.deploy.TYPE_NAMES_KEY].split(" ")
+        print(type_names)
+        print(r_max)
         if species_to_type_name is None:
             # Default to species names
             warnings.warn(
@@ -173,7 +176,7 @@ class AllegroLargeCellCalculator(Calculator):
                 "The default mapping of chemical symbols as type names didn't make sense; please provide an explicit mapping in `species_to_type_name`"
             )
         transform = TypeMapper(chemical_symbol_to_type=chemical_symbol_to_type)
-
+        print(chemical_symbol_to_type)
         # build nequip calculator
         if "transform" in kwargs:
             raise TypeError("`transform` not allowed here")
@@ -192,7 +195,7 @@ class AllegroLargeCellCalculator(Calculator):
         """
         # call to base-class to set atoms attribute
         Calculator.calculate(self, atoms)
-        blocks = split_lattice(atoms, self.nx, self.ny, self.nz, 2*self.r_max+3)
+        blocks = split_lattice(atoms, self.nx, self.ny, self.nz, self.r_max*2+3)
         self.results = {}
         self.results["energy"] = 0
         self.results["forces"] = np.zeros((len(atoms), 3))
@@ -225,6 +228,7 @@ class AllegroLargeCellCalculator(Calculator):
                         .cpu()
                         .numpy()
                     )[idx]
+
                 if AtomicDataDict.FORCE_KEY in out:
                     # force has units eng / len:
                     self.results["forces"][ext_indices[idx]] = (
@@ -235,3 +239,4 @@ class AllegroLargeCellCalculator(Calculator):
             self.results["energy"] = np.sum(self.results["energies"])
             # "force consistant" energy
             self.results["free_energy"] = self.results["energy"]
+        

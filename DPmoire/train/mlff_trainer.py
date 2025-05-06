@@ -28,6 +28,7 @@ class MLFFTrainer:
         self.d = config["d"]
         self.dataset = dataset
         self.val_dataset = val_dataset
+        self.config = config
 
     def get_params(self):
         step = int(self.dataset.n_configs/100)-1
@@ -42,7 +43,10 @@ class MLFFTrainer:
                         max_d = dis_ij
                 if atoms.get_chemical_symbols()[i] not in elements:
                     elements.append(atoms.get_chemical_symbols()[i])
-        self.RCUT = max_d * 1.1
+        if self.config["r_cut"]<0:
+            self.RCUT = max_d * 1.1
+        else:
+            self.RCUT = self.config["r_cut"]
         self.elements = elements
 
     def make_dataset_file(self):

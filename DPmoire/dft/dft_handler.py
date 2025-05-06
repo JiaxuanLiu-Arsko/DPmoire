@@ -6,6 +6,8 @@ import numpy as np
 
 
 def check_job_list_status(job_list:list=None):
+    
+    time.sleep(5)
     if len(job_list)==0:
         return []
     job_ids_str = ",".join(map(str, job_list))
