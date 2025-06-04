@@ -120,7 +120,6 @@ class DFTHandler:
                         del self.job_work_dir[job_id]
             else:
                 for idx, job_id in enumerate(failed_jobs):
-                    self.submit_job(self.job_work_dir[job_id])
                     print(f"Slurm job {job_id} in {self.job_work_dir[job_id]} failed/canceled. `auto_resub` tag was set to False, there will be no resubmission.")
             time.sleep(30)
         _, existing_jobs = self.get_running_jobs(job_list=self.existing_job)

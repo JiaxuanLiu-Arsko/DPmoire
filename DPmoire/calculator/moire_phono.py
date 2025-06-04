@@ -225,19 +225,21 @@ class MoirePhono():
         :return:
         """
         supercell, unitcell_idx = generate_sc(unitcell, sc)
-        unit_in_sc = np.ones(len(supercell), dtype=int)
-        unit_in_sc *= -1
+        sc_to_uc = np.ones(len(supercell), dtype=int)
+        sc_to_uc *= -1
         for i, idx in enumerate(unitcell_idx):
-            unit_in_sc[idx] = i
-        blocks = split_lattice(supercell, self.nx, self.ny, self.nz, 2*self.r_max)
+            sc_to_uc[idx] = i
+        blocks = split_lattice(supercell, self.nx, self.ny, self.nz, self.r_max)
         result = np.zeros((len(unitcell), len(supercell), 3, 3))
         for key, items in blocks.items():
             ext_indices = items[0]
             block_indices_in_ext = items[1]
-            required_idxs = []
-            for idx in block_indices_in_ext:
-                if unit_in_sc[ext_indices[idx]]>-1:
-                    required_idxs.append(idx)
+            block_flag = np.zeros(len(ext_indices), dtype=bool)
+            block_flag[block_indices_in_ext] = True
+            required_idxs_in_ext = []
+            for i, idx in enumerate(ext_indices):
+                if sc_to_uc[idx]>-1:
+                    required_idxs_in_ext.append(i)
             # prepare data
             splitted_atoms = supercell[ext_indices]
             data = AtomicData.from_ase(atoms=splitted_atoms, r_max=self.r_max)
@@ -247,14 +249,18 @@ class MoirePhono():
             data = self.transform(data)
             data = data.to(self.device)
             data = AtomicData.to_AtomicDataDict(data)
-
+            edge_indx_list = []
+            for i, idx in enumerate(data[AtomicDataDict.EDGE_INDEX_KEY][0]):
+                if block_flag[idx.item()]:
+                    edge_indx_list.append(i)
             data[AtomicDataDict.POSITIONS_KEY].requires_grad_(True)
-            
+            data[AtomicDataDict.EDGE_CELL_SHIFT_KEY] = data[AtomicDataDict.EDGE_CELL_SHIFT_KEY][edge_indx_list]
+            data[AtomicDataDict.EDGE_INDEX_KEY] = data[AtomicDataDict.EDGE_INDEX_KEY][:, edge_indx_list]
             #data[AtomicDataDict.FORCE_KEY].requires_grad_(True)
             # predict + extract data
             out = self.model(data)
             force_constants = -jacobian(
-                y=out[AtomicDataDict.FORCE_KEY][required_idxs],
+                y=out[AtomicDataDict.FORCE_KEY][required_idxs_in_ext],
                 x=data[AtomicDataDict.POSITIONS_KEY],
             )
             # def forces(x):
@@ -266,8 +272,8 @@ class MoirePhono():
 
             #if not AtomicDataDict.FORCE_KEY in out:
             #    raise NotImplementedError("the model don't have forces as output!!!")
-            for i, idx in enumerate(required_idxs): 
-                result[unit_in_sc[ext_indices[idx]], ext_indices] = (
+            for i, idx in enumerate(required_idxs_in_ext): 
+                result[sc_to_uc[ext_indices[idx]], ext_indices] += (
                     self.energy_units_to_eV / self.length_units_to_A / self.length_units_to_A
                 ) * force_constants[i]
             del out

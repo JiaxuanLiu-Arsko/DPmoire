@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Union, Tuple, Dict, Optional, List, Set, Sequence
 from ase import Atoms
 from ase.neighborlist import NeighborList
 from ase.io.vasp import read_vasp, write_vasp
@@ -10,11 +11,15 @@ import torch
 import ase.data
 from ase.calculators.calculator import Calculator, all_changes
 from ase.stress import full_3x3_to_voigt_6_stress
-
+from nequip.data.AtomicData import neighbor_list_and_relative_vec
 from nequip.data import AtomicData, AtomicDataDict
 from nequip.data.transforms import TypeMapper
 import nequip.scripts.deploy
 import nequip.ase.nequip_calculator
+
+import psutil
+import os
+
 
 
 def split_lattice(atoms, nx, ny, nz, rcut):
@@ -184,7 +189,7 @@ class AllegroLargeCellCalculator(Calculator):
             model=model, r_max=r_max, device=device, transform=transform, nx=nx, ny=ny, nz=nz, **kwargs
         )
 
-    def calculate(self, atoms=None, properties=["energy"], system_changes=all_changes):
+    def calculate(self, atoms:ase.Atoms=None, properties=["energy"], system_changes=all_changes):
         """
         Calculate properties.
 
@@ -195,17 +200,19 @@ class AllegroLargeCellCalculator(Calculator):
         """
         # call to base-class to set atoms attribute
         Calculator.calculate(self, atoms)
-        blocks = split_lattice(atoms, self.nx, self.ny, self.nz, self.r_max*2+3)
+        blocks = split_lattice(atoms, self.nx, self.ny, self.nz, self.r_max)
         self.results = {}
         self.results["energy"] = 0
         self.results["forces"] = np.zeros((len(atoms), 3))
         self.results["free_energy"] = 0
         self.results["energies"] = np.zeros((len(atoms)))
         #self.results["stress"] = np.zeros(6)
-        virial = np.zeros((len(atoms), 3, 3))
+        stress = np.zeros((3, 3))
         for key, items in blocks.items():
             ext_indices = items[0]
             block_indices_in_ext = items[1]
+            block_flag = np.zeros(len(ext_indices), dtype=bool)
+            block_flag[block_indices_in_ext] = True
             # prepare data
             splitted_atoms = atoms[ext_indices]
             data = AtomicData.from_ase(atoms=splitted_atoms, r_max=self.r_max)
@@ -215,11 +222,22 @@ class AllegroLargeCellCalculator(Calculator):
             data = self.transform(data)
             data = data.to(self.device)
             data = AtomicData.to_AtomicDataDict(data)
-
+            #data = AtomicDataDict.with_edge_vectors(data)
+            edge_indx_list = []
+            for i, idx in enumerate(data[AtomicDataDict.EDGE_INDEX_KEY][0]):
+                if block_flag[idx.item()]:
+                    edge_indx_list.append(i)
+            #data[AtomicDataDict.POSITIONS_KEY] = data[AtomicDataDict.POSITIONS_KEY][block_indices_in_ext]
+            #data[AtomicDataDict.EDGE_LENGTH_KEY] = data[AtomicDataDict.EDGE_LENGTH_KEY][edge_indx_list]
+            #data[AtomicDataDict.EDGE_VECTORS_KEY] = data[AtomicDataDict.EDGE_VECTORS_KEY][edge_indx_list]
+            #data[AtomicDataDict.ATOM_TYPE_KEY] = data[AtomicDataDict.ATOM_TYPE_KEY][block_indices_in_ext]
+            #data[AtomicDataDict.ATOMIC_NUMBERS_KEY] = data[AtomicDataDict.ATOMIC_NUMBERS_KEY][block_indices_in_ext]
+            data[AtomicDataDict.EDGE_CELL_SHIFT_KEY] = data[AtomicDataDict.EDGE_CELL_SHIFT_KEY][edge_indx_list]
+            data[AtomicDataDict.EDGE_INDEX_KEY] = data[AtomicDataDict.EDGE_INDEX_KEY][:, edge_indx_list]
             # predict + extract data
             out = self.model(data)
             # only store results the model actually computed to avoid KeyErrors
-            for idx in block_indices_in_ext:
+            for i, idx in enumerate(block_indices_in_ext):
                 if AtomicDataDict.PER_ATOM_ENERGY_KEY in out:
                     self.results["energies"][ext_indices[idx]] = self.energy_units_to_eV * (
                         out[AtomicDataDict.PER_ATOM_ENERGY_KEY]
@@ -229,11 +247,22 @@ class AllegroLargeCellCalculator(Calculator):
                         .numpy()
                     )[idx]
 
-                if AtomicDataDict.FORCE_KEY in out:
-                    # force has units eng / len:
-                    self.results["forces"][ext_indices[idx]] = (
-                        self.energy_units_to_eV / self.length_units_to_A
-                    ) * out[AtomicDataDict.FORCE_KEY].detach().cpu().numpy()[idx]
+            if AtomicDataDict.FORCE_KEY in out:
+                # force has units eng / len:
+                self.results["forces"][ext_indices] += (
+                    self.energy_units_to_eV / self.length_units_to_A
+                ) * out[AtomicDataDict.FORCE_KEY].detach().cpu().numpy()
+
+            if AtomicDataDict.STRESS_KEY in out:
+                partial_stress = out[AtomicDataDict.STRESS_KEY].detach().cpu().numpy()
+                stress += partial_stress.reshape(3, 3) * (
+                    self.energy_units_to_eV / self.length_units_to_A**3
+                )
+
+        if AtomicDataDict.STRESS_KEY in out:
+            # ase wants voigt format
+            stress_voigt = full_3x3_to_voigt_6_stress(stress)
+            self.results["stress"] = stress_voigt
 
         if AtomicDataDict.TOTAL_ENERGY_KEY in out:
             self.results["energy"] = np.sum(self.results["energies"])

@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -n 4
 #SBATCH --gres=gpu:1 ### 使用 1 张 gpu 卡
-#SBATCH --partition=h800
+#SBATCH --partition=amdgpu40g
 #SBATCH -A hmt03
 #SBATCH --job-name=rlx_WSe2
 #SBATCH --output=./log
@@ -11,9 +11,6 @@
 
 NP=$((1)) ### 使用的 gpu 卡数，与--gres=gpu:1 的数字一致
 ### 执行任务所需要加载的模块
-module load oneapi22.3
-module load nvhpc/22.11
-module load cuda11.8
 ### 一些提示性输出
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
@@ -32,12 +29,12 @@ export CUDA_LAUNCH_BLOCKING=1
 echo $LD_LIBRARY_PATH
 
 ###防止conda activate environment失败，网上抄的
-if [ -f "/home/jxliu/anaconda3/etc/profile.d/conda.sh" ]; then
-    . "/home/jxliu/anaconda3/etc/profile.d/conda.sh"
+if [ -f "/data/home/jxliu/anaconda3/etc/profile.d/conda.sh" ]; then
+    . "/data/home/jxliu/anaconda3/etc/profile.d/conda.sh"
  else
-     export PATH="/home/jxliu/anaconda3/bin/:$PATH"
+     export PATH="/data/home/jxliu/anaconda3/bin/:$PATH"
  fi
 
 ### 执行任务
-conda activate nequIP
+conda activate dpmoire
 python rlxTest.py
