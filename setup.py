@@ -16,10 +16,11 @@ setup(
         ]
     },
     install_requires=[
-        "numpy",
+        "numpy==1.26.3",
         "ase",
         "tqdm",
-        "pyyaml"
+        "pyyaml",
+        "spglib"
     ],
     zip_safe=True,
 )

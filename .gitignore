@@ -1,3 +1,4 @@
 DPmoire.egg-info
-__pycache__
-test
+__pycache__/
+test/
+build/

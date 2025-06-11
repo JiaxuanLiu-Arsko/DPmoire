@@ -1,25 +1,21 @@
 import numpy as np
-from typing import Union, Tuple, Dict, Optional, List, Set, Sequence
 from ase import Atoms
 from ase.neighborlist import NeighborList
 from ase.io.vasp import read_vasp, write_vasp
-
+import torch
+import re
 from typing import Union, Optional, Callable, Dict
 import warnings
-import torch
+import os
 
 import ase.data
 from ase.calculators.calculator import Calculator, all_changes
 from ase.stress import full_3x3_to_voigt_6_stress
-from nequip.data.AtomicData import neighbor_list_and_relative_vec
+
 from nequip.data import AtomicData, AtomicDataDict
 from nequip.data.transforms import TypeMapper
 import nequip.scripts.deploy
-import nequip.ase.nequip_calculator
-
-import os
-
-
+from nequip.train.trainer import Trainer
 
 def split_lattice(atoms, nx, ny, nz, rcut):
     # 将原子位置转换为分数坐标
@@ -99,8 +95,44 @@ def split_lattice(atoms, nx, ny, nz, rcut):
 
     return blocks
 
+def jacobian(x:torch.Tensor, y:torch.Tensor):
+    jacobian = torch.zeros((y.shape[0], x.shape[0],y.shape[1], x.shape[1]))
+    for i in range(y.shape[0]):
+        for j in range(y.shape[1]):
+            # 对 y[i, j] 求导
+            gradients = torch.autograd.grad(
+                outputs=y[i, j],
+                inputs=x,
+                create_graph=False,
+                retain_graph=True,  # 保留计算图
+                allow_unused=True
+            )[0]
+            jacobian[i, :, j, :] = gradients
+    return jacobian.detach().cpu().numpy()
 
-class AllegroLargeCellCalculator(Calculator):
+def generate_sc(unitcell:Atoms, sc):
+    cell = unitcell.get_cell().array
+    pos = unitcell.get_positions()
+    atomic_numbers = unitcell.get_atomic_numbers()
+    cell_sc = np.dot(np.diag(sc), cell)
+    pos_sc = np.zeros((sc[0]*sc[1]*sc[2]*len(pos), 3))
+    atomic_numbers_sc = np.zeros((sc[0]*sc[1]*sc[2]*len(atomic_numbers)))
+    i_atoms = 0
+    unitcell_idx = []
+    for idx in range(len(unitcell)):
+        unitcell_idx.append(i_atoms)
+        for k in range(sc[2]):
+            for j in range(sc[1]):
+                for i in range(sc[0]):
+                    pos_sc[i_atoms] = pos[idx] + np.dot([i, j, k], cell)
+                    atomic_numbers_sc[i_atoms] = atomic_numbers[idx]
+                    i_atoms += 1
+    supercell = Atoms(numbers=atomic_numbers_sc, positions=pos_sc, pbc=[True, True, True], cell=cell_sc)
+    return supercell, unitcell_idx
+    
+
+
+class MoirePhono():
     """NequIP ASE Calculator.
 
     .. warning::
@@ -108,8 +140,6 @@ class AllegroLargeCellCalculator(Calculator):
         If you are running MD with custom species, please make sure to set the correct masses for ASE.
 
     """
-
-    implemented_properties = ["energy", "energies", "forces", "stress", "free_energy"]
 
     def __init__(
         self,
@@ -124,7 +154,6 @@ class AllegroLargeCellCalculator(Calculator):
         nz: int = 1,
         **kwargs
     ):
-        Calculator.__init__(self, **kwargs)
         self.results = {}
         self.model = model
         assert isinstance(
@@ -140,9 +169,9 @@ class AllegroLargeCellCalculator(Calculator):
         self.nz = nz
 
     @classmethod
-    def from_deployed_model(
+    def from_training_dir(
         cls,
-        model_path,
+        train_dir,
         device: Union[str, torch.device] = "cpu",
         species_to_type_name: Optional[Dict[str, str]] = None,
         set_global_options: Union[str, bool] = "warn",
@@ -152,17 +181,11 @@ class AllegroLargeCellCalculator(Calculator):
         **kwargs,
     ):
         # load model
-        model, metadata = nequip.scripts.deploy.load_deployed_model(
-            model_path=model_path,
-            device=device,
-            set_global_options=set_global_options,
-        )
-        r_max = float(metadata[nequip.scripts.deploy.R_MAX_KEY])
+        model, config = Trainer.load_model_from_training_session(train_dir, device=device)
+        r_max = float(config[nequip.scripts.deploy.R_MAX_KEY])
 
         # build typemapper
-        type_names = metadata[nequip.scripts.deploy.TYPE_NAMES_KEY].split(" ")
-        print(type_names)
-        print(r_max)
+        type_names = config[nequip.scripts.deploy.TYPE_NAMES_KEY]
         if species_to_type_name is None:
             # Default to species names
             warnings.warn(
@@ -180,7 +203,11 @@ class AllegroLargeCellCalculator(Calculator):
                 "The default mapping of chemical symbols as type names didn't make sense; please provide an explicit mapping in `species_to_type_name`"
             )
         transform = TypeMapper(chemical_symbol_to_type=chemical_symbol_to_type)
-        print(chemical_symbol_to_type)
+        model.eval()
+        for module in model.modules():
+            if len(re.findall("StressOutput", module.__class__.__name__))>0:
+                module.train()
+        #self.model.eval()
         # build nequip calculator
         if "transform" in kwargs:
             raise TypeError("`transform` not allowed here")
@@ -188,7 +215,7 @@ class AllegroLargeCellCalculator(Calculator):
             model=model, r_max=r_max, device=device, transform=transform, nx=nx, ny=ny, nz=nz, **kwargs
         )
 
-    def calculate(self, atoms:ase.Atoms=None, properties=["energy"], system_changes=all_changes):
+    def calculate_force_constant(self, unitcell:Atoms, sc):
         """
         Calculate properties.
 
@@ -197,23 +224,24 @@ class AllegroLargeCellCalculator(Calculator):
         :param system_changes: [str], system changes since last calculation, used by ASE internally
         :return:
         """
-        # call to base-class to set atoms attribute
-        Calculator.calculate(self, atoms)
-        blocks = split_lattice(atoms, self.nx, self.ny, self.nz, self.r_max)
-        self.results = {}
-        self.results["energy"] = 0
-        self.results["forces"] = np.zeros((len(atoms), 3))
-        self.results["free_energy"] = 0
-        self.results["energies"] = np.zeros((len(atoms)))
-        #self.results["stress"] = np.zeros(6)
-        stress = np.zeros((3, 3))
+        supercell, unitcell_idx = generate_sc(unitcell, sc)
+        sc_to_uc = np.ones(len(supercell), dtype=int)
+        sc_to_uc *= -1
+        for i, idx in enumerate(unitcell_idx):
+            sc_to_uc[idx] = i
+        blocks = split_lattice(supercell, self.nx, self.ny, self.nz, self.r_max)
+        result = np.zeros((len(unitcell), len(supercell), 3, 3))
         for key, items in blocks.items():
             ext_indices = items[0]
             block_indices_in_ext = items[1]
             block_flag = np.zeros(len(ext_indices), dtype=bool)
             block_flag[block_indices_in_ext] = True
+            required_idxs_in_ext = []
+            for i, idx in enumerate(ext_indices):
+                if sc_to_uc[idx]>-1:
+                    required_idxs_in_ext.append(i)
             # prepare data
-            splitted_atoms = atoms[ext_indices]
+            splitted_atoms = supercell[ext_indices]
             data = AtomicData.from_ase(atoms=splitted_atoms, r_max=self.r_max)
             for k in AtomicDataDict.ALL_ENERGY_KEYS:
                 if k in data:
@@ -221,50 +249,49 @@ class AllegroLargeCellCalculator(Calculator):
             data = self.transform(data)
             data = data.to(self.device)
             data = AtomicData.to_AtomicDataDict(data)
-            #data = AtomicDataDict.with_edge_vectors(data)
             edge_indx_list = []
             for i, idx in enumerate(data[AtomicDataDict.EDGE_INDEX_KEY][0]):
                 if block_flag[idx.item()]:
                     edge_indx_list.append(i)
-            #data[AtomicDataDict.POSITIONS_KEY] = data[AtomicDataDict.POSITIONS_KEY][block_indices_in_ext]
-            #data[AtomicDataDict.EDGE_LENGTH_KEY] = data[AtomicDataDict.EDGE_LENGTH_KEY][edge_indx_list]
-            #data[AtomicDataDict.EDGE_VECTORS_KEY] = data[AtomicDataDict.EDGE_VECTORS_KEY][edge_indx_list]
-            #data[AtomicDataDict.ATOM_TYPE_KEY] = data[AtomicDataDict.ATOM_TYPE_KEY][block_indices_in_ext]
-            #data[AtomicDataDict.ATOMIC_NUMBERS_KEY] = data[AtomicDataDict.ATOMIC_NUMBERS_KEY][block_indices_in_ext]
+            data[AtomicDataDict.POSITIONS_KEY].requires_grad_(True)
             data[AtomicDataDict.EDGE_CELL_SHIFT_KEY] = data[AtomicDataDict.EDGE_CELL_SHIFT_KEY][edge_indx_list]
             data[AtomicDataDict.EDGE_INDEX_KEY] = data[AtomicDataDict.EDGE_INDEX_KEY][:, edge_indx_list]
+            #data[AtomicDataDict.FORCE_KEY].requires_grad_(True)
             # predict + extract data
             out = self.model(data)
-            # only store results the model actually computed to avoid KeyErrors
-            for i, idx in enumerate(block_indices_in_ext):
-                if AtomicDataDict.PER_ATOM_ENERGY_KEY in out:
-                    self.results["energies"][ext_indices[idx]] = self.energy_units_to_eV * (
-                        out[AtomicDataDict.PER_ATOM_ENERGY_KEY]
-                        .detach()
-                        .squeeze(-1)
-                        .cpu()
-                        .numpy()
-                    )[idx]
+            force_constants = -jacobian(
+                y=out[AtomicDataDict.FORCE_KEY][required_idxs_in_ext],
+                x=data[AtomicDataDict.POSITIONS_KEY],
+            )
+            # def forces(x):
+            #     data[AtomicDataDict.POSITIONS_KEY] = x
+            #     data[AtomicDataDict.POSITIONS_KEY].requires_grad_(True)
+            #     out = self.model(data)
+            #     return out[AtomicDataDict.FORCE_KEY]
+            # force_constants = torch.autograd.functional.jacobian(forces, data[AtomicDataDict.POSITIONS_KEY], vectorize=False).permute(0, 2, 1, 3).detach().cpu().numpy()
 
-            if AtomicDataDict.FORCE_KEY in out:
-                # force has units eng / len:
-                self.results["forces"][ext_indices] += (
-                    self.energy_units_to_eV / self.length_units_to_A
-                ) * out[AtomicDataDict.FORCE_KEY].detach().cpu().numpy()
+            #if not AtomicDataDict.FORCE_KEY in out:
+            #    raise NotImplementedError("the model don't have forces as output!!!")
+            for i, idx in enumerate(required_idxs_in_ext): 
+                result[sc_to_uc[ext_indices[idx]], ext_indices] += (
+                    self.energy_units_to_eV / self.length_units_to_A / self.length_units_to_A
+                ) * force_constants[i]
+            del out
+            del data
+            print(f"{key} force constant finished.")
 
-            if AtomicDataDict.STRESS_KEY in out:
-                partial_stress = out[AtomicDataDict.STRESS_KEY].detach().cpu().numpy()
-                stress += partial_stress.reshape(3, 3) * (
-                    self.energy_units_to_eV / self.length_units_to_A**3
-                )
-
-        if AtomicDataDict.STRESS_KEY in out:
-            # ase wants voigt format
-            stress_voigt = full_3x3_to_voigt_6_stress(stress)
-            self.results["stress"] = stress_voigt
-
-        if AtomicDataDict.TOTAL_ENERGY_KEY in out:
-            self.results["energy"] = np.sum(self.results["energies"])
-            # "force consistant" energy
-            self.results["free_energy"] = self.results["energy"]
-        
+        return result
+    
+    def write_force_constant(self, unitcell, sc, path):
+        force_constants = self.calculate_force_constant(unitcell, sc)
+        with open(path, "w") as outfile:
+            outfile.write(f"{force_constants.shape[0]} {force_constants.shape[1]}\n")
+            for i in range(force_constants.shape[0]):
+                for j in range(force_constants.shape[1]):
+                    outfile.write(f"{i*sc[0]*sc[1]*sc[2]+1} {j} \n")
+                    for dim1 in range(3):
+                        for dim2 in range(3):
+                            outfile.write(f"{force_constants[i, j, dim1, dim2]}")
+                            outfile.write(" ")
+                        outfile.write("\n")
+                
