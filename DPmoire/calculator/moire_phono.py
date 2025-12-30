@@ -1,16 +1,19 @@
-import numpy as np
-from ase import Atoms
-from ase.neighborlist import NeighborList
-from ase.io.vasp import read_vasp, write_vasp
 import torch
 import re
 from typing import Union, Optional, Callable, Dict
 import warnings
-import os
+import time
+import yaml
+from datetime import datetime
 
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import eigsh
+from ase import Atoms
+from ase.neighborlist import NeighborList
 import ase.data
-from ase.calculators.calculator import Calculator, all_changes
-from ase.stress import full_3x3_to_voigt_6_stress
+import ase.units as units
+from ase.io.vasp import read_vasp
 
 from nequip.data import AtomicData, AtomicDataDict
 from nequip.data.transforms import TypeMapper
@@ -114,24 +117,23 @@ def generate_sc(unitcell:Atoms, sc):
     cell = unitcell.get_cell().array
     pos = unitcell.get_positions()
     atomic_numbers = unitcell.get_atomic_numbers()
-    cell_sc = np.dot(np.diag(sc), cell)
-    pos_sc = np.zeros((sc[0]*sc[1]*sc[2]*len(pos), 3))
-    atomic_numbers_sc = np.zeros((sc[0]*sc[1]*sc[2]*len(atomic_numbers)))
+    cell_sc = np.dot(np.diag(2*sc-1), cell)
+    pos_sc = np.zeros(((sc[0]*2-1)*(sc[1]*2-1)*(sc[2]*2-1)*len(pos), 3))
+    atomic_numbers_sc = np.zeros(((sc[0]*2-1)*(sc[1]*2-1)*(sc[2]*2-1)*len(atomic_numbers)))
     i_atoms = 0
     unitcell_idx = []
-    for idx in range(len(unitcell)):
-        unitcell_idx.append(i_atoms)
-        for k in range(sc[2]):
-            for j in range(sc[1]):
-                for i in range(sc[0]):
+    for k in range(2*sc[2]-1):
+        for j in range(2*sc[1]-1):
+            for i in range(2*sc[0]-1):
+                for idx in range(len(unitcell)):
+                    if i==sc[0]-1 and j==sc[1]-1 and k==sc[2]-1:
+                        unitcell_idx.append(i_atoms)
                     pos_sc[i_atoms] = pos[idx] + np.dot([i, j, k], cell)
                     atomic_numbers_sc[i_atoms] = atomic_numbers[idx]
                     i_atoms += 1
     supercell = Atoms(numbers=atomic_numbers_sc, positions=pos_sc, pbc=[True, True, True], cell=cell_sc)
     return supercell, unitcell_idx
     
-
-
 class MoirePhono():
     """NequIP ASE Calculator.
 
@@ -230,7 +232,8 @@ class MoirePhono():
         for i, idx in enumerate(unitcell_idx):
             sc_to_uc[idx] = i
         blocks = split_lattice(supercell, self.nx, self.ny, self.nz, self.r_max)
-        result = np.zeros((len(unitcell), len(supercell), 3, 3))
+        result = {}
+        result_init_flag = np.zeros((len(unitcell), len(supercell)), dtype=bool)
         for key, items in blocks.items():
             ext_indices = items[0]
             block_indices_in_ext = items[1]
@@ -263,35 +266,190 @@ class MoirePhono():
                 y=out[AtomicDataDict.FORCE_KEY][required_idxs_in_ext],
                 x=data[AtomicDataDict.POSITIONS_KEY],
             )
-            # def forces(x):
-            #     data[AtomicDataDict.POSITIONS_KEY] = x
-            #     data[AtomicDataDict.POSITIONS_KEY].requires_grad_(True)
-            #     out = self.model(data)
-            #     return out[AtomicDataDict.FORCE_KEY]
-            # force_constants = torch.autograd.functional.jacobian(forces, data[AtomicDataDict.POSITIONS_KEY], vectorize=False).permute(0, 2, 1, 3).detach().cpu().numpy()
-
-            #if not AtomicDataDict.FORCE_KEY in out:
-            #    raise NotImplementedError("the model don't have forces as output!!!")
             for i, idx in enumerate(required_idxs_in_ext): 
-                result[sc_to_uc[ext_indices[idx]], ext_indices] += (
-                    self.energy_units_to_eV / self.length_units_to_A / self.length_units_to_A
-                ) * force_constants[i]
+                for j, idx2 in enumerate(ext_indices):
+                    if not result_init_flag[sc_to_uc[ext_indices[idx]], idx2]:
+                        result[(sc_to_uc[ext_indices[idx]], idx2)] = np.zeros((3, 3))
+                        result_init_flag[sc_to_uc[ext_indices[idx]], idx2] = True
+                    result[(sc_to_uc[ext_indices[idx]], idx2)] += (
+                        self.energy_units_to_eV / self.length_units_to_A / self.length_units_to_A
+                    ) * force_constants[i, j]
             del out
             del data
             print(f"{key} force constant finished.")
 
-        return result
+        return unitcell_idx, result
     
     def write_force_constant(self, unitcell, sc, path):
-        force_constants = self.calculate_force_constant(unitcell, sc)
+        unitcell_idx, force_constants = self.calculate_force_constant(unitcell, sc)
         with open(path, "w") as outfile:
-            outfile.write(f"{force_constants.shape[0]} {force_constants.shape[1]}\n")
-            for i in range(force_constants.shape[0]):
-                for j in range(force_constants.shape[1]):
-                    outfile.write(f"{i*sc[0]*sc[1]*sc[2]+1} {j} \n")
-                    for dim1 in range(3):
-                        for dim2 in range(3):
-                            outfile.write(f"{force_constants[i, j, dim1, dim2]}")
-                            outfile.write(" ")
-                        outfile.write("\n")
-                
+            for key, items in force_constants.items():
+                outfile.write(f"{key[0]} {key[1]} \n")
+                for dim1 in range(3):
+                    for dim2 in range(3):
+                        outfile.write(f"{items[dim1, dim2]}")
+                        outfile.write(" ")
+                    outfile.write("\n")
+
+def read_force_constants(filename, n_atoms_unit, n_atoms_super):
+    """读取力常数矩阵文件"""
+    start_time = time.time()
+    print("开始读取力常数矩阵...")
+    
+    with open(filename, 'r') as f:
+        
+        # 初始化力常数矩阵
+        force_constants = np.zeros((n_atoms_unit, n_atoms_super, 3, 3))
+        
+        # 读取力常数数据
+        while True:
+            # 读取原子对索引
+            line = f.readline()
+            if not line:
+                break
+            i, j = map(int, line.split())
+            
+            # 读取3x3力常数子矩阵
+            for a in range(3):
+                data = list(map(float, f.readline().split()))
+                for b in range(3):
+                    force_constants[i, j, a, b] = data[b]
+    
+    end_time = time.time()
+    print(f"力常数矩阵读取完成，耗时: {end_time - start_time:.2f} 秒")
+    return force_constants
+
+def get_dynamical_matrix(force_constants, structure, q_point, supercell_matrix=np.array([2, 2, 1])):
+    """计算给定q点的动力学矩阵"""
+    start_time = time.time()
+    masses = structure.get_masses()
+    scaled_positions = structure.get_scaled_positions()
+    n_atoms_unit = force_constants.shape[0]
+    n_sc = np.prod(2*supercell_matrix-1)
+    
+    # 初始化动力学矩阵
+    dyn_matrix = np.zeros((3 * n_atoms_unit, 3 * n_atoms_unit), dtype=complex)
+    
+    # 预计算质量因子矩阵
+    mass_factors = 1.0 / np.sqrt(masses[:, None] * masses[None, :])  # shape: (n_atoms_unit, n_atoms_unit)
+    
+    # 生成所有超胞位移的网格
+    k1, k2, k3 = np.meshgrid(
+        np.arange(-supercell_matrix[0]+1, supercell_matrix[0]),
+        np.arange(-supercell_matrix[1]+1, supercell_matrix[1]),
+        np.arange(-supercell_matrix[2]+1, supercell_matrix[2]),
+        indexing='ij'
+    )
+    k_vectors = np.stack([k1.flatten(), k2.flatten(), k3.flatten()], axis=1)  # shape: (n_sc, 3)
+    
+    # 计算所有相位因子
+    lat_phases = np.exp(2j * np.pi * np.dot(k_vectors, q_point))  # shape: (n_sc,)
+    
+    # 预计算超胞原子索引
+    sc_indices = ((k_vectors[:, 0]+supercell_matrix[0]-1) * n_atoms_unit + 
+                 (k_vectors[:, 1]+supercell_matrix[1]-1) * (2*supercell_matrix[0]-1) * n_atoms_unit + 
+                 (k_vectors[:, 2]+supercell_matrix[2]-1) * (2*supercell_matrix[0]-1) * (2*supercell_matrix[1]-1) * n_atoms_unit)
+    
+    # 对每个单胞原子对进行计算
+    for i in range(n_atoms_unit):
+        for j in range(n_atoms_unit):
+            # 获取这对原子的所有超胞相互作用
+            super_j_indices = j + sc_indices
+            fc_ij = force_constants[i, super_j_indices]  # shape: (n_sc, 3, 3)
+            
+            # 应用质量因子和相位因子
+            mass_factor = mass_factors[i, j]
+            atom_phases = np.exp(2j * np.pi * np.dot(scaled_positions[j]-scaled_positions[i], q_point))
+            # 计算动力学矩阵元素
+            for a in range(3):
+                for b in range(3):
+                    # 正向项
+                    dyn_matrix[3*i + a, 3*j + b] = np.sum(fc_ij[:, a, b] * mass_factor * lat_phases * atom_phases)
+    
+    end_time = time.time()
+    print(f"q点 {q_point} 的动力学矩阵构建完成，耗时: {end_time - start_time:.2f} 秒")
+    return dyn_matrix
+
+def calculate_phonon_spectrum(force_constants, masses, q_points, supercell_matrix=np.array([2, 2, 1]), sparse_solver=True, n_lowest_bands=19):
+    """计算声子谱"""
+    start_time = time.time()
+    print("开始计算声子谱...")
+    
+    n_atoms_unit = force_constants.shape[0]
+    n_qpoints = len(q_points)
+    if sparse_solver:
+        frequencies = np.zeros((n_qpoints, n_lowest_bands))
+        eigenvectors = np.zeros((n_qpoints, 3 * n_atoms_unit, n_lowest_bands), dtype=complex)
+    else:
+        frequencies = np.zeros((n_qpoints, 3 * n_atoms_unit))
+        eigenvectors = np.zeros((n_qpoints, 3 * n_atoms_unit, 3 * n_atoms_unit), dtype=complex)
+    
+    for i, q in enumerate(q_points):
+        # 获取动力学矩阵
+        dyn_matrix = get_dynamical_matrix(force_constants, masses, q, supercell_matrix)
+        
+        diag_start_time = time.time()
+        if sparse_solver:
+            # 转换为稀疏矩阵格式
+            sparse_dyn_matrix = csr_matrix(dyn_matrix)
+            
+            # 使用稀疏矩阵求解器
+            eigenvalues, eigenvecs = eigsh(sparse_dyn_matrix, k=n_lowest_bands, 
+                                         which='LM', sigma=1e-10)
+            sorted_indices = np.argsort(eigenvalues)
+            eigenvalues = eigenvalues[sorted_indices]
+            eigenvecs = eigenvecs[:, sorted_indices]
+        else:
+            # 使用标准numpy求解器
+            eigenvalues, eigenvecs = np.linalg.eigh(dyn_matrix)
+        
+        diag_end_time = time.time()
+        print(f"q点 {q} 的对角化完成，耗时: {diag_end_time - diag_start_time:.2f} 秒")
+        # 转换为频率（THz）
+        frequencies[i] = np.sign(eigenvalues) * np.sqrt(np.abs(eigenvalues)) / (2 * np.pi * THz)
+        eigenvectors[i] = eigenvecs
+    
+    end_time = time.time()
+    print(f"声子谱计算完成，总耗时: {end_time - start_time:.2f} 秒")
+    return frequencies, eigenvectors
+
+def write_band_yaml(q_points, frequencies, structure, filename='band.yaml'):
+    """将计算结果以band.yaml格式输出"""
+    start_time = time.time()
+    print("开始写入band.yaml文件...")
+    
+    # 准备数据
+    nqpoint = len(q_points)
+    natom = len(structure)
+    nbands = frequencies.shape[1]
+    reciprocal_lattice = structure.cell.reciprocal().array.tolist()
+    data = {
+        'nqpoint': nqpoint,
+        'npath': 1,  # 假设只有一条路径
+        'natom': natom,
+        'reciprocal_lattice': reciprocal_lattice,
+        'phonon': []
+    }
+    q_distance = np.linalg.norm(q_points[0] @ reciprocal_lattice)
+    # 添加每个q点的数据
+    for i, q in enumerate(q_points):
+        q_data = {
+            'q-position': q.tolist(),
+            'distance': float(q_distance),
+            'band': []
+        }
+        
+        # 添加每个能带的频率
+        for freq in frequencies[i]:
+            q_data['band'].append({'frequency': float(freq)})
+        
+        data['phonon'].append(q_data)
+    
+    # 写入yaml文件
+    with open(filename, 'w') as f:
+        f.write('# Generated by phonon_analysis.py\n')
+        f.write(f'# Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n')
+        yaml.dump(data, f, default_flow_style=False)
+    
+    end_time = time.time()
+    print(f"band.yaml文件写入完成，耗时: {end_time - start_time:.2f} 秒")

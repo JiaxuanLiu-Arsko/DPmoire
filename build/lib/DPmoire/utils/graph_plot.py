@@ -50,8 +50,7 @@ def plot_distance_z(atoms:Atoms, sc:int, element:str, s=None, colormap='Spectral
     print(vmax, vmin)
     cmap = mpl.colormaps[colormap]
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = plt.gca()
 
     if s is None:
         s = 150000/len(top_idx)
@@ -92,9 +91,9 @@ def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str
         disp = end_pos[i] - start_pos[i]
         mod_vec = np.dot(disp, np.linalg.inv(cell))
         for dim in range(3):
-            if mod_vec[dim] > 0.5:
+            while mod_vec[dim] > 0.5:
                 mod_vec[dim] -= 1
-            elif mod_vec[dim] < -0.5:
+            while mod_vec[dim] < -0.5:
                 mod_vec[dim] += 1
         disp = np.dot(mod_vec, cell)
         disp[2] = np.sqrt(disp[0] * disp[0] + disp[1] * disp[1])
@@ -102,8 +101,7 @@ def plot_disp_in_plane(start_config:Atoms, end_config:Atoms, sc:int, element:str
             for k in range(sc):
                 intra_disp.append(disp)
                 positions.append(start_pos[i] + j*cell[0] + k*cell[1] - shift_vec*sc)
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = plt.gca()
     intra_disp_arr = np.array(intra_disp)
     positions_arr = np.array(positions)
     colors = []

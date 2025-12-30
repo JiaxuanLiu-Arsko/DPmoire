@@ -43,7 +43,12 @@ class EnvironmentHandler:
         self.sc = config["sc"]
         ens = []
         for element in self.elements:
-            ens.append(os.popen(f"cat {config['POTCAR_dir']}/{element}/POTCAR|grep ENMAX").readlines()[0].split()[2].split(";")[0]) 
+            if os.path.exists(f"{config['POTCAR_dir']}/{element}/POTCAR"):
+                ens.append(os.popen(f"cat {config['POTCAR_dir']}/{element}/POTCAR|grep ENMAX").readlines()[0].split()[2].split(";")[0])
+            elif os.path.exists(f"{config['POTCAR_dir']}/{element}_sv/POTCAR"):
+                ens.append(os.popen(f"cat {config['POTCAR_dir']}/{element}_sv/POTCAR|grep ENMAX").readlines()[0].split()[2].split(";")[0])
+            else:
+                raise FileNotFoundError(f"{config['POTCAR_dir']}/{element}/POTCAR not found!")
         ensf = [float(ens[k]) for k in range(len(ens))]
         self.ENCUT = np.max(ensf)
         if config["r_cut"] <0 :
