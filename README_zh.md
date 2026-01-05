@@ -68,11 +68,11 @@ DPmoire需通过`.yaml`格式的配置文件控制运行。[examples/MoS2/config
   - **twist_val**：`True/False` 生成扭转结构构建验证集
   - **max_val_n**：生成扭转结构的最大n值（n=1对应21.97°）
   - **min_val_n**：生成扭转结构的最小n值（建议≥3）
-  - **n_sectors**：位移网格点数，生成n×n个位移构型（对称性约化前）
+  - **n_sectors_layer2 / n_sectors_layer3**：第2层、第3层平移时使用的位移网格点数。若均为9，将分别生成$9\times 9$的层内平移组合（对称性约化前），数值越大数据集多样性越好但所需DFT计算也越多。
   - **sc**：计算所用超胞大小（sc=2表示使用2×2超胞）
   - **d**：初始层间距（影响VASP_MLFF截断半径及测试集质量）
 
-常规情况下示例中的"计算设置"预设值即可适用（需调整"环境设置"适配本地系统）。追求更优性能时可尝试增大**n_sectors**值。
+常规情况下示例中的"计算设置"预设值即可适用（需调整"环境设置"适配本地系统）。追求更优性能时可尝试增大**n_sectors_layer2**和**n_sectors_layer3**。
 
 ### 目录结构与必需文件
 
@@ -91,7 +91,7 @@ DPmoire需通过`.yaml`格式的配置文件控制运行。[examples/MoS2/config
   - `val_INCAR`：测试集计算的INCAR模板
   - `ML_AB`和`ML_FF`：初始VASP MLFF文件（仅当**init_mlff**为False时需要）
   - `vdw_kernel.bindat`：VASP范德华核函数文件（使用非局域vdW-DF泛函时必需）
-  - `bot_layer.poscar`和`top_layer.poscar`：底层和顶层的单胞POSCAR文件（注意c轴长度需充足）
+  - `layer1.poscar`、`layer2.poscar`、`layer3.poscar`：三层结构各自的单层POSCAR文件（注意每个文件的c轴长度需充足）
 
 - `script_dir`中的必需文件：
   - `DFT_script.sh`：弛豫和MD使用的Slurm脚本
@@ -160,8 +160,8 @@ nohup DPmoireTrain ./config.yaml --mode train &
 为新材料启动训练时需注意：
 
 1. **POSCAR文件：**
-   - 更新`top_layer.poscar`和`bot_layer.poscar`
-   - 确保c轴长度充足
+   - 更新`layer1.poscar`、`layer2.poscar`和`layer3.poscar`
+   - 确保每个POSCAR的c轴长度充足
 
 2. **INCAR文件：**
    - 更新所有`*_INCAR`模板中的范德华修正设置

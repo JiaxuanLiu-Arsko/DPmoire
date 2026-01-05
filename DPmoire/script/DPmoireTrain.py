@@ -35,7 +35,21 @@ def main(args=None):
     if config["sym_reduce"]:
         stackings = env_handler.find_sym_reduced_stackings()
     else:
-        stackings = np.array([[i, j] for i in range(config["n_sectors"]) for j in range(config["n_sectors"])])
+        stackings = []
+        seen = set()
+        for i2 in range(config["n_sectors_layer2"]):
+            for j2 in range(config["n_sectors_layer2"]):
+                vec = (i2, j2, 0, 0)
+                if vec not in seen:
+                    stackings.append(list(vec))
+                    seen.add(vec)
+        for i3 in range(config["n_sectors_layer3"]):
+            for j3 in range(config["n_sectors_layer3"]):
+                vec = (0, 0, i3, j3)
+                if vec not in seen:
+                    stackings.append(list(vec))
+                    seen.add(vec)
+        stackings = np.array(stackings)
     md_handler = MDHandler(config=config, stackings=stackings)
     if args.mode == "build_val":
         if not config["twist_val"]:
@@ -56,16 +70,17 @@ def main(args=None):
             val_handler.run_calculation()
             _, job_list = val_handler.get_running_jobs()
         if config["init_mlff"]:
-            env_handler.gen_init_environment(f"{work_dir}/init_mlff", 0)
-            os.system(f"cp {config['script_dir']}/{config['DFT_script']} {work_dir}/init_mlff")
+            init_dir = f"{work_dir}/init_mlff"
             md_handler = MDHandler(config=config, existing_job=job_list, stackings=stackings)
-            md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
-            md_handler.wait_until_finished()
-            env_handler.gen_init_environment(f"{work_dir}/init_mlff", 1)
-            md_handler.submit_job(work_dir=f"{work_dir}/init_mlff")
-            job_list = md_handler.wait_until_finished()
-            os.system(f"cp {work_dir}/init_mlff/ML_ABN {config['input_dir']}/ML_AB ")
-            os.system(f"cp {work_dir}/init_mlff/ML_FFN {config['input_dir']}/ML_FF ")
+            n_layers = len(env_handler.struct_handler.layer_atoms)
+            for layer_idx in range(n_layers):
+                env_handler.gen_init_environment(init_dir, layer_idx)
+                if layer_idx == 0:
+                    os.system(f"cp {config['script_dir']}/{config['DFT_script']} {init_dir}")
+                md_handler.submit_job(work_dir=init_dir)
+                job_list = md_handler.wait_until_finished()
+            os.system(f"cp {init_dir}/ML_ABN {config['input_dir']}/ML_AB ")
+            os.system(f"cp {init_dir}/ML_FFN {config['input_dir']}/ML_FF ")
         if config["do_relaxation"]:
             env_handler.gen_POSCAR(config["work_dir"], stackings=stackings)
             env_handler.gen_environment('rlx_INCAR', config["work_dir"], stackings=stackings)

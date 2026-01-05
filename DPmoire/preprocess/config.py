@@ -28,9 +28,13 @@ class Config(object):
         return str(dict(self))
 
     def update(self, config_dict:dict):
-        for key in config_dict.keys():
-            if key in CONFIG_KEYS:
-                self.__setitem__(key, config_dict[key])
+        for key, value in config_dict.items():
+            if key == "n_sectors":
+                warnings.warn("`n_sectors` is deprecated, use `n_sectors_layer2` and `n_sectors_layer3` instead.", stacklevel=2)
+                self.__setitem__("n_sectors_layer2", value)
+                self.__setitem__("n_sectors_layer3", value)
+            elif key in CONFIG_KEYS:
+                self.__setitem__(key, value)
             else:
                 warnings.warn("Key not found")
         self.check_config()
@@ -71,10 +75,10 @@ class Config(object):
             raise Exception(f"{self.config_dict['DFT_script']} not in {self.config_dict['script_dir']}")
         if not os.path.exists(f"{self.config_dict['script_dir']}/{self.config_dict['learn_script']}"):
             raise Exception(f"{self.config_dict['learn_script']} not in {self.config_dict['script_dir']}")
-        if not os.path.exists(f"{self.config_dict['input_dir']}/top_layer.poscar"):
-            raise Exception(f"top_layer.poscar not in {self.config_dict['input_dir']}")
-        if not os.path.exists(f"{self.config_dict['input_dir']}/bot_layer.poscar"):
-            raise Exception(f"bot_layer.poscar not in {self.config_dict['input_dir']}")
+        for idx in range(1, 4):
+            fname = f"layer{idx}.poscar"
+            if not os.path.exists(f"{self.config_dict['input_dir']}/{fname}"):
+                raise Exception(f"{fname} not in {self.config_dict['input_dir']}")
         if not os.path.exists(f"{self.config_dict['input_dir']}/rlx_INCAR"):
             raise Exception(f"rlx_INCAR.poscar not in {self.config_dict['input_dir']}")
         if not os.path.exists(f"{self.config_dict['input_dir']}/MD_INCAR"):

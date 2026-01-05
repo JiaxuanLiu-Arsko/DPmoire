@@ -16,7 +16,8 @@ do_relaxation: True     #Do relaxation before MD, should be True for the first r
 init_mlff: True         #Prepare a small MLFF for VASP to start, should be True for the first run.
 sc: 2                   #construct 2*2 supercells.
 d: 6.3                    #construct structures with interlayer distance of 6.3
-n_sectors: 9            #shift by a grid of 9*9
+n_sectors_layer2: 9     #shift grid size for layer 2
+n_sectors_layer3: 9     #shift grid size for layer 3
 twist_val: True         #generate twisted structure to run validation set
 max_val_n: 5            #maximum n value of twist angle
 min_val_n: 4            #minimum n value of twist angle

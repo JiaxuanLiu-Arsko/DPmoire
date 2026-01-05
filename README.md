@@ -69,12 +69,12 @@ Here list some important tags:
   - **twist_val**: `True/False` Generate twist structures to build a validation set. If this tag is set to True, DPmoire will generate twisted structures and do DFT calculation according to contents in `val_INCAR` to generate test set.
   - **max_val_n**:  `int value`: maximum n value of generated twist structure. n=1 corresponds to 21.97°, n=2 is 13.17°, n=3 is 9.43°, n=4 is 7.34°, n=5 is 6.08°, ...
   - **min_val_n**:  `int value`: minimum n value of generated twist structure. We recommand setting **min_val_n** $\geq$ 3.
-  - **n_sectors**:  `int value` Number of grid points to shift. If you set this to 9, DPmoire will calculate $9\times9$ structures (before reducing symmetry) with differet in-plane shift. Typically, larger **n_sectors** should improve the quality of dataset.
+  - **n_sectors_layer2 / n_sectors_layer3**:  `int value` Number of grid points used when translating the 2nd and 3rd layers, respectively. If both are set to 9, DPmoire will evaluate $9\times9$ relative shifts for layer 2 and $9\times9$ shifts for layer 3 (before symmetry reduction). Increasing these values typically improves dataset diversity at the cost of more DFT calculations.
   - **sc**:  `int value` The size of supercells used in calculation. If you set sc to 2, DPmoire will use $2 \times 2$ supercell to calculate.
   - **d**:  `float value` Initial interlayer distance measured by averaged position of each layers in c direction. This tag will affect generated rigid structure and the **cutoff radius of VASP_MLFF** (ML_RCUT1 & ML_RCUT2 in INCAR) set by DPmoire. It will also affect the rigid interlayer distance of test set and further have impact on the quality of test set. Please set **d** to a reasonable value.
 
 
-In normal situation, preset values for "CALCULATION SETTINGS" in example should work fine (you should still adjust "ENVIRONMENT SETTINGS" to fit your own system). If you are trying to get a better performance, you could try setting larger number of **n_sectors**.
+In normal situation, preset values for "CALCULATION SETTINGS" in example should work fine (you should still adjust "ENVIRONMENT SETTINGS" to fit your own system). If you are trying to get a better performance, you could try increasing **n_sectors_layer2** and **n_sectors_layer3**.
 
 ### Directory Structure and Required Files
 
@@ -92,7 +92,7 @@ Before training the MLFF, prepare the following directories and files:
   - `val_INCAR`: INCAR template for running test set.
   - `ML_AB` and `ML_FF`: Initial VASP MLFF files. Only required if **init_mlff** is set to *False*, as explained in [Configuration File](#configuration-file)
   - `vdw_kernel.bindat`: VASP van der Waals (vdW) kernel files, necessary when enabling [Nonlocal vdW-DF functionals](https://www.vasp.at/wiki/index.php/Nonlocal_vdW-DF_functionals) in INCAR templates. Refer to the **Important Technical Remarks** section for more details.
-  - `bot_layer.poscar` and `top_layer.poscar`: POSCAR files for the unit cells of the bottom and top layers, respectively. **Ensure the c-axis of POSCAR is sufficiently large!**
+  - `layer1.poscar`, `layer2.poscar`, and `layer3.poscar`: POSCAR files for each monolayer that forms the trilayer stack. **Ensure the c-axis of every POSCAR is sufficiently large!**
 
 ## Running DPmoire
 
@@ -161,8 +161,8 @@ When initiating a new training session for a different material, ensure the foll
 
 
 1. **POSCAR Files:**
-   - Modify `top_layer.poscar` and `bot_layer.poscar` to desired material
-   - **Ensure the c-axis in POSCAR is sufficiently large**
+   - Modify `layer1.poscar`, `layer2.poscar`, and `layer3.poscar` to match the desired materials.
+   - **Ensure the c-axis in each POSCAR is sufficiently large**
 
 2. **INCAR Files:**
    - Update all `*_INCAR` templates with appropriate van der Waals (vdW) correction settings.

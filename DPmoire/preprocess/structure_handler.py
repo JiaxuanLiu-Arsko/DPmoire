@@ -1,169 +1,216 @@
 import numpy as np
-import os,sys
+import os
 from .config import Config
 from ase.io.vasp import read_vasp, write_vasp
-from ase.constraints import FixedLine 
+from ase.constraints import FixedLine
 from ase.build import make_supercell, sort, stack
 from ase import Atoms
-from ase.spacegroup import get_spacegroup
 import copy
 from ._find_homo_twist import search_twist, adjust_atoms_d
-import spglib
+from pymatgen.analysis.structure_matcher import StructureMatcher
+from pymatgen.io.ase import AseAtomsAdaptor
+
 
 class StructureHandler:
-
-    '''
+    """
     Handle crystal structures during the process.
-    '''
+    """
 
-    in_dir = None  
-    out_dir = None      #Directory to store shifted structures.
-    n_secs = None          #number of sectors to shift
-    top_atoms = None
-    bot_atoms = None
-    top_indexes = None
-    bot_indexes = None
+    in_dir = None
+    out_dir = None  # Directory to store shifted structures.
+    work_dir = None
+    n_secs_layer2 = None
+    n_secs_layer3 = None
+    layer_atoms = None
+    layer_indices = None
+    layer_centers_frac = None
     new_struct = None
     d = None
-    work_dir = None
 
-    def __init__(self, config:Config|dict=None):
+    def __init__(self, config: Config | dict = None):
         if isinstance(config, (Config, dict)):
-            self.n_secs = config["n_sectors"]
+            self.n_secs_layer2 = config["n_sectors_layer2"]
+            self.n_secs_layer3 = config["n_sectors_layer3"]
             self.in_dir = config["input_dir"]
             self.work_dir = config["work_dir"]
             self.d = config["d"]
         else:
             raise Exception(f"Unknown type of Conifg:{type(config)}")
         self.read_all_layers(self.in_dir)
-        self.new_struct, self.top_indexes, self.bot_indexes = self.build_new_struct(d=self.d)
+        self.new_struct, self.layer_indices = self.build_new_struct(d=self.d)
 
-    def read_atoms(self, in_file:str):
+    def read_atoms(self, in_file: str):
         atoms = read_vasp(in_file)
         return atoms
-    
-    def read_all_layers(self, in_dir:str):
-        self.top_atoms = self.read_atoms(f"{in_dir}/top_layer.poscar")
-        self.bot_atoms = self.read_atoms(f"{in_dir}/bot_layer.poscar")
 
-    def find_layer_idx(self, atoms:Atoms):
-        cell_mat = atoms.get_cell().array#.transpose()
-        frac_mat = np.linalg.inv(cell_mat)
-        frac_pos = np.dot(atoms.get_positions(), frac_mat)
-        top_idx = []
-        bot_idx = []
-        for i, pos in enumerate(frac_pos):
-            if pos[2]>0.5:
-                top_idx.append(i)
-            else:
-                bot_idx.append(i)
-        return top_idx, bot_idx
-    
-    def find_sym_reduced_stackings(self, prec:float=0.0001):
-        sym_op_top = spglib.get_symmetry((self.top_atoms.get_cell(), self.top_atoms.get_scaled_positions(),
-                                        self.top_atoms.get_atomic_numbers()),
-                                    symprec=prec)
-        sym_op_bot = spglib.get_symmetry((self.bot_atoms.get_cell(), self.bot_atoms.get_scaled_positions(),
-                                        self.bot_atoms.get_atomic_numbers()),
-                                    symprec=prec)
-        rotat = []
-        trans = []
-        for i, (rot_t, trans_t) in enumerate(zip(sym_op_top["rotations"], sym_op_top["translations"])):
-            for j, (rot_b, trans_b) in enumerate(zip(sym_op_bot["rotations"], sym_op_bot["translations"])):
-                if np.linalg.norm((rot_t-rot_b).reshape(9)) > prec:
-                    continue
-                rotat.append(rot_t)
-                trans.append(trans_b-trans_t)
-        stcks = []
-        reduced = np.zeros((self.n_secs, self.n_secs))
-        for i in range(self.n_secs):
-            for j in range(self.n_secs):
-                if reduced[i, j] != 0:
-                    continue
-                for r, t in zip(rotat, trans):
-                    shift_vec = np.dot(r, [i, j, 0]) + t * self.n_secs
-                    shift_vec_round = np.array([round(vec) for vec in shift_vec])
-                    if np.linalg.norm(shift_vec-shift_vec_round)<0.001:
-                        reduced[shift_vec_round[0]%self.n_secs, shift_vec_round[1]%self.n_secs] = 1
-                stcks.append([i, j])
-        stcks = np.array(stcks)
-        np.savetxt(f"{self.work_dir}/sym_reduced_stackings.txt", stcks)
+    def read_all_layers(self, in_dir: str):
+        self.layer_atoms = [
+            self.read_atoms(f"{in_dir}/layer1.poscar"),
+            self.read_atoms(f"{in_dir}/layer2.poscar"),
+            self.read_atoms(f"{in_dir}/layer3.poscar"),
+        ]
+        # Keep backwards-compatible aliases for other modules.
+        self.bot_atoms = self.layer_atoms[0]
+        self.mid_atoms = self.layer_atoms[1]
+        self.top_atoms = self.layer_atoms[2]
+
+    def _fractional_positions(self, atoms: Atoms):
+        frac_mat = np.linalg.inv(atoms.get_cell().array)
+        return np.dot(atoms.get_positions(), frac_mat)
+
+    def _assign_layer_indices(self, atoms: Atoms, centers_frac: list[float]):
+        frac_pos = self._fractional_positions(atoms)
+        indices = [[] for _ in centers_frac]
+        for idx, pos in enumerate(frac_pos):
+            z = pos[2] - np.floor(pos[2])
+            dists = [
+                min(abs(z - center), 1 - abs(z - center)) for center in centers_frac
+            ]
+            layer_idx = int(np.argmin(dists))
+            indices[layer_idx].append(idx)
+        return indices
+
+    def _generate_all_stackings(self):
+        stackings = []
+        seen = set()
+        for i2 in range(self.n_secs_layer2):
+            for j2 in range(self.n_secs_layer2):
+                vec = (i2, j2, 0, 0)
+                if vec not in seen:
+                    stackings.append([i2, j2, 0, 0])
+                    seen.add(vec)
+        for i3 in range(self.n_secs_layer3):
+            for j3 in range(self.n_secs_layer3):
+                vec = (0, 0, i3, j3)
+                if vec not in seen:
+                    stackings.append([0, 0, i3, j3])
+                    seen.add(vec)
+        return stackings
+
+    def find_sym_reduced_stackings(self, prec: float = 0.0001):
+        _ = prec  # kept for API compatibility
+        adaptor = AseAtomsAdaptor()
+        matcher = StructureMatcher(ltol = prec, stol=prec, angle_tol=prec)
+        unique_structs = []
+        unique_stackings = []
+        for stacking in self._generate_all_stackings():
+            atoms = self._shift_primitive(*stacking)
+            structure = adaptor.get_structure(atoms)
+            matched = False
+            for ref in unique_structs:
+                if matcher.fit(ref, structure):
+                    matched = True
+                    break
+            if not matched:
+                unique_structs.append(structure)
+                unique_stackings.append(stacking)
+        stcks = np.array(unique_stackings)
+        np.savetxt(f"{self.work_dir}/sym_reduced_stackings.txt", stcks, fmt="%d")
         return stcks
 
-    def build_new_struct(self, d:float):
-        '''
-        combine new structures combining top/bot layer atoms
-        '''
-        top_cell_mat = self.top_atoms.get_cell().array#.transpose()
-        top_cell_len = self.top_atoms.get_cell().lengths()
-        bot_cell_mat = self.bot_atoms.get_cell().array#.transpose()
-        bot_cell_len = self.bot_atoms.get_cell().lengths()
-        fractional_pos_top = np.dot(self.top_atoms.get_positions(), np.linalg.inv(top_cell_mat))
-        fractional_pos_bot = np.dot(self.bot_atoms.get_positions(), np.linalg.inv(bot_cell_mat))
-        new_cell_mat = np.array([top_cell_mat[k]*(1 + bot_cell_len[k]/top_cell_len[k])/2 for k in range(3)])
-        c_top = np.mean([k[2] for k in fractional_pos_top])
-        c_bot = np.mean([k[2] for k in fractional_pos_bot])
-        for i, _ in enumerate(fractional_pos_top):
-            fractional_pos_top[i][2] += 0.5 - c_top + d/(self.top_atoms.get_cell().lengths()[2]+self.bot_atoms.get_cell().lengths()[2])
-        for i, _ in enumerate(fractional_pos_bot):
-            fractional_pos_bot[i][2] += 0.5 - c_bot - d/(self.top_atoms.get_cell().lengths()[2]+self.bot_atoms.get_cell().lengths()[2])
-        new_pos_top = [[item[0], item[1], item[2]] for item in np.dot(fractional_pos_top, new_cell_mat)]
-        new_pos_bot = [[item[0], item[1], item[2]] for item in np.dot(fractional_pos_bot, new_cell_mat)]
+    def build_new_struct(self, d: float):
+        """
+        Build a trilayer structure combining all three layers.
+        """
+        n_layers = len(self.layer_atoms)
+        ref_cell = self.layer_atoms[0].get_cell().array
+        layer_lengths = [atoms.get_cell().lengths() for atoms in self.layer_atoms]
+        new_cell_mat = np.zeros_like(ref_cell)
+        for axis in range(3):
+            ref_vec = ref_cell[axis]
+            ref_len = np.linalg.norm(ref_vec)
+            if ref_len < 1e-8:
+                raise ValueError("Invalid lattice vector length encountered.")
+            target_len = np.mean([lengths[axis] for lengths in layer_lengths])
+            new_cell_mat[axis] = ref_vec / ref_len * target_len
+        c_len = np.linalg.norm(new_cell_mat[2])
+        spacing_frac = d / c_len
+        centers_frac = [
+            0.5 + (idx - (n_layers - 1) / 2) * spacing_frac for idx in range(n_layers)
+        ]
         new_pos = []
-        new_pos.extend(new_pos_top)
-        new_pos.extend(new_pos_bot)
         new_symbols = []
-        new_symbols.extend(self.top_atoms.get_chemical_symbols())
-        new_symbols.extend(self.bot_atoms.get_chemical_symbols())
-        atoms = sort(Atoms(positions=new_pos, symbols=new_symbols, cell=new_cell_mat#.transpose()
-                      , pbc = [True, True, True]))
-        top_idx, bot_idx = self.find_layer_idx(atoms)
-        return atoms, top_idx, bot_idx
-    
-    def shift_atoms(self, i:int, j:int, c_constrain:bool=True, sc:int=2):
+        for layer_idx, atoms in enumerate(self.layer_atoms):
+            frac = self._fractional_positions(atoms)
+            frac[:, 2] += centers_frac[layer_idx] - np.mean(frac[:, 2])
+            cart = np.dot(frac, new_cell_mat)
+            new_pos.extend(cart.tolist())
+            new_symbols.extend(atoms.get_chemical_symbols())
+        atoms = sort(
+            Atoms(
+                positions=new_pos,
+                symbols=new_symbols,
+                cell=new_cell_mat,
+                pbc=[True, True, True],
+            )
+        )
+        self.layer_centers_frac = centers_frac
+        layer_indices = self._assign_layer_indices(atoms, centers_frac)
+        return atoms, layer_indices
 
-        '''
-        Returning atoms with top layer atoms shifted by (i/n_secs*lat_vec[0] + j/n_secs*lat_vec[1]).
-        Set c_constrain=True to add constrain in c direction.
-        '''
-
+    def _shift_primitive(self, i2: int, j2: int, i3: int, j3: int):
         atoms = copy.deepcopy(self.new_struct)
-        delta = i/self.n_secs * atoms.get_cell().array[0] + j/self.n_secs * atoms.get_cell().array[1]
         pos = atoms.get_positions()
-        for idx in self.top_indexes:
-            pos[idx] += delta
+        cell = atoms.get_cell().array
+        delta2 = (
+            i2 / self.n_secs_layer2 * cell[0] + j2 / self.n_secs_layer2 * cell[1]
+        )
+        delta3 = (
+            i3 / self.n_secs_layer3 * cell[0] + j3 / self.n_secs_layer3 * cell[1]
+        )
+        for idx in self.layer_indices[1]:
+            pos[idx] += delta2
+        for idx in self.layer_indices[2]:
+            pos[idx] += delta3
         atoms.set_positions(pos)
-        atoms_sc = sort(make_supercell(prim=atoms, P=[[sc, 0, 0], [0, sc, 0], [0, 0, 1]]))
-        top_idx, bot_idx = self.find_layer_idx(atoms_sc)
-        if c_constrain:
-            cons = FixedLine([top_idx[0], bot_idx[0]], direction=atoms_sc.cell.array[2]/atoms_sc.cell.lengths()[2])
+        return atoms
+
+    def shift_atoms(
+        self, i2: int, j2: int, i3: int, j3: int, c_constrain: bool = True, sc: int = 2
+    ):
+        """
+        Return atoms where the 2nd layer is shifted by (i2/n2 * a1 + j2/n2 * a2) and
+        the 3rd layer is shifted by (i3/n3 * a1 + j3/n3 * a2).
+        """
+        atoms = self._shift_primitive(i2, j2, i3, j3)
+        atoms_sc = sort(
+            make_supercell(prim=atoms, P=[[sc, 0, 0], [0, sc, 0], [0, 0, 1]])
+        )
+        layer_indices_sc = self._assign_layer_indices(
+            atoms_sc, self.layer_centers_frac
+        )
+        if c_constrain and len(layer_indices_sc[0]) > 0 and len(layer_indices_sc[1]) > 0 and len(layer_indices_sc[2]) > 0:
+            cons = FixedLine(
+                [layer_indices_sc[0][0], layer_indices_sc[1][0], layer_indices_sc[2][0]],
+                direction=atoms_sc.cell.array[2] / atoms_sc.cell.lengths()[2],
+            )
             atoms_sc.set_constraint(cons)
         return atoms_sc
-    
-    def shift(self, i:int, j:int, out_dir:str, c_constrain:bool=True, sc:int = 2):
 
+    def shift(self, stacking, out_dir: str, c_constrain: bool = True, sc: int = 2):
         """
-        Write POSCAR at out_dir/i_j/ of shifted structures.
-        Shift vector equals (i/n_secs*lat_vec[0] + j/n_secs*lat_vec[1]).
-        Set c_constrain=True to add constrain in c direction.
+        Write POSCAR at out_dir/i2_j2_i3_j3/ of shifted structures.
         """
-        if not os.path.exists(f"{out_dir}/{i}_{j}/"):
-            os.mkdir(f"{out_dir}/{i}_{j}/")
-        atoms_sc = self.shift_atoms(i, j, c_constrain, sc)
-        write_vasp(f"{out_dir}/{i}_{j}/POSCAR", atoms=atoms_sc)
+        i2, j2, i3, j3 = map(int, stacking)
+        shift_dir = f"{out_dir}/{i2}_{j2}_{i3}_{j3}/"
+        if not os.path.exists(shift_dir):
+            os.makedirs(shift_dir)
+        atoms_sc = self.shift_atoms(i2, j2, i3, j3, c_constrain, sc)
+        write_vasp(f"{shift_dir}/POSCAR", atoms=atoms_sc)
 
-    def shift_all(self, out_dir:str, c_constrain:bool=True, sc:int = 2, stackings = None):
+    def shift_all(
+        self,
+        out_dir: str,
+        c_constrain: bool = True,
+        sc: int = 2,
+        stackings=None,
+    ):
         if stackings is None:
-            for i in range(self.n_secs):
-                for j in range(self.n_secs):
-                    self.shift(i, j, out_dir, c_constrain=c_constrain, sc=sc)
-        else:
-            for stck in stackings:
-                i = stck[0]
-                j = stck[1]
-                self.shift(i, j, out_dir, c_constrain=c_constrain, sc=sc)
+            stackings = self._generate_all_stackings()
+        for stck in stackings:
+            self.shift(stck, out_dir, c_constrain=c_constrain, sc=sc)
 
-    def make_twist_struct(self, N_min, N_max, out_dir:str):
+    def make_twist_struct(self, N_min, N_max, out_dir: str):
         top_atoms = copy.deepcopy(self.top_atoms)
         bot_atoms = copy.deepcopy(self.bot_atoms)
         top_atoms, bot_atoms = adjust_atoms_d(top_atoms, bot_atoms, self.d)
@@ -178,4 +225,3 @@ class StructureHandler:
                 os.mkdir(f"{out_dir}/{angle_list[idx]}/")
             write_vasp(f"{out_dir}/{angle_list[idx]}/POSCAR", out_atoms)
         return angle_list, out_atoms_list
-

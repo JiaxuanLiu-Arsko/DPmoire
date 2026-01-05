@@ -1,26 +1,24 @@
 import numpy as np
-import os,sys,re
-from ase.io.vasp import read_vasp, write_vasp
+import os
+from ase.io.vasp import write_vasp
 from ase import Atoms
 from ase.build import make_supercell, sort
 from .config import Config
 from .structure_handler import StructureHandler
-import numpy as np
-import os
 
 class EnvironmentHandler:
     struct_handler = None
     k_generator = None
     input_dir = None
     POTCAR_dir = None
-    n_secs = None
-    #params to be found:
+    n_secs_layer2 = None
+    n_secs_layer3 = None
+    # params to be found:
     ENCUT = None
     RCUT1 = None
     RCUT2 = None
     elements = None
-    top_elements = None
-    bot_elements = None
+    layer_elements = None
     lat_vec = None
     sc = None
     sym_reduce = None
@@ -31,15 +29,17 @@ class EnvironmentHandler:
             self.k_generator = k_generator
         else:
             self.k_generator = self.gen_kpoints
-        self.n_secs = config["n_sectors"]
+        self.n_secs_layer2 = config["n_sectors_layer2"]
+        self.n_secs_layer3 = config["n_sectors_layer3"]
         self.input_dir = config["input_dir"]
         self.POTCAR_dir = config["POTCAR_dir"]
         self.sym_reduce = config["sym_reduce"]
         self.struct_handler = StructureHandler(config=config)
         self.lat_vec = self.struct_handler.new_struct.get_cell().array
         self.elements = self.get_elements(self.struct_handler.new_struct)
-        self.top_elements = self.get_elements(self.struct_handler.top_atoms)
-        self.bot_elements = self.get_elements(self.struct_handler.bot_atoms)
+        self.layer_elements = [
+            self.get_elements(atoms) for atoms in self.struct_handler.layer_atoms
+        ]
         self.sc = config["sc"]
         ens = []
         for element in self.elements:
@@ -62,8 +62,9 @@ class EnvironmentHandler:
         return self.struct_handler.find_sym_reduced_stackings(prec=prec)
 
     def find_RCUT(self):
-        max_a = np.max([self.struct_handler.top_atoms.get_cell().lengths()[0], 
-                        self.struct_handler.bot_atoms.get_cell().lengths()[0]])
+        max_a = np.max(
+            [atoms.get_cell().lengths()[0] for atoms in self.struct_handler.layer_atoms]
+        )
         d = self.struct_handler.d
         rcut = np.sqrt(max_a**2 + d**2)
         return rcut*1.1
@@ -84,30 +85,41 @@ class EnvironmentHandler:
     def gen_init_environment(self, out_dir:str, layer:int):
         if not os.path.isdir(out_dir):
             os.makedirs(out_dir)
+        if layer < 0 or layer >= len(self.struct_handler.layer_atoms):
+            raise ValueError("Layer index out of range when generating init environment.")
         self.gen_KPOINTS(f"{out_dir}")
         self.gen_INCAR(f"{out_dir}", f'{self.input_dir}/init_INCAR')
-        if layer == 0:
-            atoms = read_vasp(f'{self.input_dir}/bot_layer.poscar')
-        else:
-            atoms = read_vasp(f'{self.input_dir}/top_layer.poscar')
-            infile = open(f"{out_dir}/INCAR", "r")
-            out_str = ""
-            for lines in infile:
-                if len(lines.split())<=0:
-                    continue
-                if lines.split()[0] == "ML_ISTART":
-                    out_str += "ML_ISTART = 1\n"
-                else:
-                    out_str += lines
-            infile.close()
-            with open(f"{out_dir}/INCAR", "w") as outfile:
-                outfile.write(out_str)
-            os.system(f"mv {out_dir}/ML_ABN {out_dir}/ML_AB")
-            os.system(f"mv {out_dir}/ML_FFN {out_dir}/ML_FF")
-        atoms_sc = sort(make_supercell(prim=atoms, P=[[self.sc, 0, 0], [0, self.sc, 0], [0, 0, 1]]))
-        self.gen_POTCAR(self.get_elements(atoms_sc), f"{out_dir}")
-        write_vasp(f"{out_dir}/POSCAR", atoms_sc)
+        if layer > 0:
+            self._prepare_init_restart(out_dir)
+        atoms = sort(
+            make_supercell(
+                prim=self.struct_handler.layer_atoms[layer],
+                P=[[self.sc, 0, 0], [0, self.sc, 0], [0, 0, 1]],
+            )
+        )
+        self.gen_POTCAR(self.get_elements(atoms), f"{out_dir}")
+        write_vasp(f"{out_dir}/POSCAR", atoms)
         os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir}")
+
+    def _prepare_init_restart(self, out_dir:str):
+        incar_path = f"{out_dir}/INCAR"
+        if os.path.exists(incar_path):
+            out_str = ""
+            with open(incar_path, "r") as infile:
+                for line in infile:
+                    if len(line.split()) <= 0:
+                        continue
+                    if line.split()[0] == "ML_ISTART":
+                        out_str += "ML_ISTART = 1\n"
+                    else:
+                        out_str += line
+            with open(incar_path, "w") as outfile:
+                outfile.write(out_str)
+        for src, dst in [("ML_ABN", "ML_AB"), ("ML_FFN", "ML_FF")]:
+            src_path = f"{out_dir}/{src}"
+            dst_path = f"{out_dir}/{dst}"
+            if os.path.exists(src_path):
+                os.rename(src_path, dst_path)
     
     def gen_val_environment(self, N_min, N_max, out_dir:str):
         if not os.path.isdir(out_dir):
@@ -122,47 +134,50 @@ class EnvironmentHandler:
         return twist_angles
 
     def gen_environment(self, INCAR, out_dir:str, stackings:list=None):
+        for i2, j2, i3, j3 in self._iterate_stackings(stackings):
+            out_dir_ij = f'{out_dir}/{i2}_{j2}_{i3}_{j3}'
+            if not os.path.isdir(out_dir_ij):
+                os.makedirs(out_dir_ij)
+            self.gen_INCAR(out_dir_ij, f'{self.input_dir}/{INCAR}')
+            self.gen_KPOINTS(out_dir_ij)
+            self.gen_POTCAR(self.elements, out_dir_ij)
+            os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir_ij}")
+            os.system(f"cp {self.input_dir}/ML_AB {out_dir_ij}")
+            os.system(f"cp {self.input_dir}/ML_FF {out_dir_ij}")
+
+        for idx, layer_atoms in enumerate(self.struct_handler.layer_atoms):
+            layer_dir = f'{out_dir}/layer_{idx+1}'
+            layer_atoms_sc = sort(
+                make_supercell(layer_atoms, [[self.sc, 0, 0], [0, self.sc, 0], [0, 0, 1]])
+            )
+            if not os.path.exists(layer_dir):
+                os.mkdir(layer_dir)
+            self.gen_INCAR(layer_dir, f'{self.input_dir}/MD_monolayer_INCAR')
+            self.gen_KPOINTS(layer_dir)
+            self.gen_POTCAR(self.get_elements(layer_atoms_sc), layer_dir)
+            os.system(f"cp {self.input_dir}/vdw_kernel.bindat {layer_dir}")
+            write_vasp(f"{layer_dir}/POSCAR", layer_atoms_sc)
+
+    def _iterate_stackings(self, stackings):
         if stackings is None:
-            for i in range(self.n_secs):
-                for j in range(self.n_secs):
-                    out_dir_ij = f'{out_dir}/{i}_{j}'
-                    self.gen_INCAR(out_dir_ij, f'{self.input_dir}/{INCAR}')
-                    self.gen_KPOINTS(out_dir_ij)
-                    self.gen_POTCAR(self.elements, out_dir_ij)
-                    os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir_ij}")
-                    os.system(f"cp {self.input_dir}/ML_AB {out_dir_ij}")
-                    os.system(f"cp {self.input_dir}/ML_FF {out_dir_ij}")
+            seen = set()
+            for i2 in range(self.n_secs_layer2):
+                for j2 in range(self.n_secs_layer2):
+                    vec = (i2, j2, 0, 0)
+                    if vec in seen:
+                        continue
+                    seen.add(vec)
+                    yield vec
+            for i3 in range(self.n_secs_layer3):
+                for j3 in range(self.n_secs_layer3):
+                    vec = (0, 0, i3, j3)
+                    if vec in seen:
+                        continue
+                    seen.add(vec)
+                    yield vec
         else:
             for stck in stackings:
-                i = stck[0]
-                j = stck[1]
-                out_dir_ij = f'{out_dir}/{i}_{j}'
-                self.gen_INCAR(out_dir_ij, f'{self.input_dir}/{INCAR}')
-                self.gen_KPOINTS(out_dir_ij)
-                self.gen_POTCAR(self.elements, out_dir_ij)
-                os.system(f"cp {self.input_dir}/vdw_kernel.bindat {out_dir_ij}")
-                os.system(f"cp {self.input_dir}/ML_AB {out_dir_ij}")
-                os.system(f"cp {self.input_dir}/ML_FF {out_dir_ij}")
-
-        top_dir = f'{out_dir}/top_layer'
-        top_atoms_sc = sort(make_supercell(self.struct_handler.top_atoms, [[self.sc, 0, 0], [0, self.sc, 0], [0, 0, 1]]))
-        if not os.path.exists(top_dir):
-            os.mkdir(top_dir)
-        self.gen_INCAR(top_dir, f'{self.input_dir}/MD_monolayer_INCAR')
-        self.gen_KPOINTS(top_dir)
-        self.gen_POTCAR(self.get_elements(top_atoms_sc), top_dir)
-        os.system(f"cp {self.input_dir}/vdw_kernel.bindat {top_dir}")
-        write_vasp(f"{top_dir}/POSCAR", top_atoms_sc)
-
-        bot_dir = f'{out_dir}/bot_layer'
-        bot_atoms_sc = sort(make_supercell(self.struct_handler.bot_atoms, [[self.sc, 0, 0], [0, self.sc, 0], [0, 0, 1]]))
-        if not os.path.exists(bot_dir):
-            os.mkdir(bot_dir)
-        self.gen_INCAR(bot_dir, f'{self.input_dir}/MD_monolayer_INCAR')
-        self.gen_KPOINTS(bot_dir)
-        self.gen_POTCAR(self.get_elements(bot_atoms_sc), bot_dir)
-        os.system(f"cp {self.input_dir}/vdw_kernel.bindat {bot_dir}")
-        write_vasp(f"{bot_dir}/POSCAR", bot_atoms_sc)
+                yield tuple(map(int, stck))
     
     def gen_POTCAR(self, elements:list, out_dir:str):
         pot_str = ""

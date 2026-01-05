@@ -1,10 +1,10 @@
-
-CONFIG_KEYS = ["n_sectors", "work_dir", "input_dir", "POTCAR_dir", "n_nodes", \
+CONFIG_KEYS = ["n_sectors_layer2", "n_sectors_layer3", "work_dir", "input_dir", "POTCAR_dir", "n_nodes", \
          "script_dir", "DFT_script", "learn_script", \
         "do_relaxation", "OUTCAR_collect_freq", "VASP_ML", "init_mlff",\
         "twist_val", "max_val_n", "min_val_n", "d", "sc", "sym_reduce", "auto_resub", "r_cut"]
 DEFAULTS = {
-    "n_sectors":9,
+    "n_sectors_layer2":9,
+    "n_sectors_layer3":9,
     "work_dir":None,
     "input_dir":None,
     "POTCAR_dir":None,
