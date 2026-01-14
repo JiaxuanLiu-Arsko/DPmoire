@@ -61,6 +61,20 @@ class StructureHandler:
                 bot_idx.append(i)
         return top_idx, bot_idx
     
+    def _generate_all_stackings(self):
+        for i in range(self.n_secs):
+            for j in range(self.n_secs):
+                yield i, j
+    
+    def _shift_primitive(self, i:int, j:int):
+        atoms = copy.deepcopy(self.new_struct)
+        delta = i/self.n_secs * atoms.get_cell().array[0] + j/self.n_secs * atoms.get_cell().array[1]
+        pos = atoms.get_positions()
+        for idx in self.top_indexes:
+            pos[idx] += delta
+        atoms.set_positions(pos)
+        return atoms
+
     def find_sym_reduced_stackings(self, prec: float = 0.0001):
         _ = prec  # kept for API compatibility
         adaptor = AseAtomsAdaptor()
