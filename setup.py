@@ -21,6 +21,7 @@ setup(
         "tqdm",
         "pyyaml",
         "spglib"
+        "pymatgen"
     ],
     zip_safe=True,
 )

@@ -9,6 +9,8 @@ from ase.spacegroup import get_spacegroup
 import copy
 from ._find_homo_twist import search_twist, adjust_atoms_d
 import spglib
+from pymatgen.analysis.structure_matcher import StructureMatcher
+from pymatgen.io.ase import AseAtomsAdaptor
 
 class StructureHandler:
 
@@ -59,35 +61,39 @@ class StructureHandler:
                 bot_idx.append(i)
         return top_idx, bot_idx
     
-    def find_sym_reduced_stackings(self, prec:float=0.0001):
-        sym_op_top = spglib.get_symmetry((self.top_atoms.get_cell(), self.top_atoms.get_scaled_positions(),
-                                        self.top_atoms.get_atomic_numbers()),
-                                    symprec=prec)
-        sym_op_bot = spglib.get_symmetry((self.bot_atoms.get_cell(), self.bot_atoms.get_scaled_positions(),
-                                        self.bot_atoms.get_atomic_numbers()),
-                                    symprec=prec)
-        rotat = []
-        trans = []
-        for i, (rot_t, trans_t) in enumerate(zip(sym_op_top["rotations"], sym_op_top["translations"])):
-            for j, (rot_b, trans_b) in enumerate(zip(sym_op_bot["rotations"], sym_op_bot["translations"])):
-                if np.linalg.norm((rot_t-rot_b).reshape(9)) > prec:
-                    continue
-                rotat.append(rot_t)
-                trans.append(trans_b-trans_t)
-        stcks = []
-        reduced = np.zeros((self.n_secs, self.n_secs))
+    def _generate_all_stackings(self):
         for i in range(self.n_secs):
             for j in range(self.n_secs):
-                if reduced[i, j] != 0:
-                    continue
-                for r, t in zip(rotat, trans):
-                    shift_vec = np.dot(r, [i, j, 0]) + t * self.n_secs
-                    shift_vec_round = np.array([round(vec) for vec in shift_vec])
-                    if np.linalg.norm(shift_vec-shift_vec_round)<0.001:
-                        reduced[shift_vec_round[0]%self.n_secs, shift_vec_round[1]%self.n_secs] = 1
-                stcks.append([i, j])
-        stcks = np.array(stcks)
-        np.savetxt(f"{self.work_dir}/sym_reduced_stackings.txt", stcks)
+                yield i, j
+    
+    def _shift_primitive(self, i:int, j:int):
+        atoms = copy.deepcopy(self.new_struct)
+        delta = i/self.n_secs * atoms.get_cell().array[0] + j/self.n_secs * atoms.get_cell().array[1]
+        pos = atoms.get_positions()
+        for idx in self.top_indexes:
+            pos[idx] += delta
+        atoms.set_positions(pos)
+        return atoms
+
+    def find_sym_reduced_stackings(self, prec: float = 0.0001):
+        _ = prec  # kept for API compatibility
+        adaptor = AseAtomsAdaptor()
+        matcher = StructureMatcher(ltol = prec, stol=prec, angle_tol=prec)
+        unique_structs = []
+        unique_stackings = []
+        for stacking in self._generate_all_stackings():
+            atoms = self._shift_primitive(*stacking)
+            structure = adaptor.get_structure(atoms)
+            matched = False
+            for ref in unique_structs:
+                if matcher.fit(ref, structure):
+                    matched = True
+                    break
+            if not matched:
+                unique_structs.append(structure)
+                unique_stackings.append(stacking)
+        stcks = np.array(unique_stackings)
+        np.savetxt(f"{self.work_dir}/sym_reduced_stackings.txt", stcks, fmt="%d")
         return stcks
 
     def build_new_struct(self, d:float):

@@ -54,6 +54,23 @@ def check_job_status(job_id:str):
     else:
         return 3 # other status
 
+def _parse_nodelist(nodelist:str):
+    if not nodelist:
+        return []
+    if nodelist in ["(null)", "N/A"]:
+        return []
+    return nodelist.split(",")
+
+def get_job_nodes(job_id:str):
+    nodes = []
+    with os.popen(f"scontrol show job -o {job_id}") as process:
+        line = process.readlines()[0].strip()
+    for token in line.split():
+        if token.startswith("NodeList="):
+            nodes = _parse_nodelist(token.split("=", 1)[1])
+            break
+    return nodes
+
 class DFTHandler:
     existing_job = None
     job_list = None
@@ -68,6 +85,8 @@ class DFTHandler:
         self.script_name = script_name
         self.job_work_dir = {}
         self.auto_resub = auto_resub
+        self.node_failures = {}
+        self.blacklist_nodes = set()
 
     def run_calculation(self):
         pass
@@ -98,11 +117,29 @@ class DFTHandler:
             existing_jobs_left, _ = self.get_running_jobs(job_list=self.existing_job)
             jobs_left, _ = self.get_running_jobs(job_list=self.job_list)
             jobs_left += existing_jobs_left
-        with os.popen(f"sbatch {self.script_name}") as process:
+        exclude_nodes = ",".join(sorted(self.blacklist_nodes))
+        exclude_flag = f"--exclude={exclude_nodes} " if exclude_nodes else ""
+        with os.popen(f"sbatch {exclude_flag}{self.script_name}") as process:
             job_id = process.readlines()[0].split()[-1]
         self.job_list.append(job_id)
         self.job_work_dir[job_id] = work_dir
-        time.sleep(5)
+        time.sleep(60)
+        status = check_job_status(job_id)
+        if status == 2:
+            failed_nodes = get_job_nodes(job_id)
+            for node in failed_nodes:
+                self.node_failures[node] = self.node_failures.get(node, 0) + 1
+                if self.node_failures[node] >= 2:
+                    self.blacklist_nodes.add(node)
+            if job_id in self.job_list:
+                self.job_list = [v for v in self.job_list if v != job_id]
+            if self.auto_resub:
+                self.submit_job(self.job_work_dir[job_id])
+                print(f"Slurm job {job_id} failed/canceled. DPmoire will resubmit a job in {self.job_work_dir[job_id]}.")
+            else:
+                print(f"Slurm job {job_id} in {self.job_work_dir[job_id]} failed/canceled. `auto_resub` tag was set to False, there will be no resubmission.")
+            if job_id in self.job_work_dir:
+                del self.job_work_dir[job_id]
 
     def wait_until_finished(self):
         while len(self.job_list)>0:
@@ -121,12 +158,22 @@ class DFTHandler:
             self.job_list = [v for v in self.job_list if v not in failed_jobs]
             if self.auto_resub:
                 for idx, job_id in enumerate(failed_jobs):
+                    failed_nodes = get_job_nodes(job_id)
+                    for node in failed_nodes:
+                        self.node_failures[node] = self.node_failures.get(node, 0) + 1
+                        if self.node_failures[node] >= 2:
+                            self.blacklist_nodes.add(node)
                     self.submit_job(self.job_work_dir[job_id])
                     print(f"Slurm job {job_id} failed/canceled. DPmoire will resubmit a job in {self.job_work_dir[job_id]}.")
                     if job_id in self.job_work_dir:
                         del self.job_work_dir[job_id]
             else:
                 for idx, job_id in enumerate(failed_jobs):
+                    failed_nodes = get_job_nodes(job_id)
+                    for node in failed_nodes:
+                        self.node_failures[node] = self.node_failures.get(node, 0) + 1
+                        if self.node_failures[node] >= 2:
+                            self.blacklist_nodes.add(node)
                     print(f"Slurm job {job_id} in {self.job_work_dir[job_id]} failed/canceled. `auto_resub` tag was set to False, there will be no resubmission.")
             time.sleep(30)
         _, existing_jobs = self.get_running_jobs(job_list=self.existing_job)
