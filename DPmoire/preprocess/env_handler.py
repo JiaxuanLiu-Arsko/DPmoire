@@ -152,6 +152,8 @@ class EnvironmentHandler:
         self.gen_KPOINTS(top_dir)
         self.gen_POTCAR(self.get_elements(top_atoms_sc), top_dir)
         os.system(f"cp {self.input_dir}/vdw_kernel.bindat {top_dir}")
+        os.system(f"cp {self.input_dir}/ML_AB {out_dir_ij}")
+        os.system(f"cp {self.input_dir}/ML_FF {out_dir_ij}")
         write_vasp(f"{top_dir}/POSCAR", top_atoms_sc)
 
         bot_dir = f'{out_dir}/bot_layer'
@@ -162,6 +164,8 @@ class EnvironmentHandler:
         self.gen_KPOINTS(bot_dir)
         self.gen_POTCAR(self.get_elements(bot_atoms_sc), bot_dir)
         os.system(f"cp {self.input_dir}/vdw_kernel.bindat {bot_dir}")
+        os.system(f"cp {self.input_dir}/ML_AB {out_dir_ij}")
+        os.system(f"cp {self.input_dir}/ML_FF {out_dir_ij}")
         write_vasp(f"{bot_dir}/POSCAR", bot_atoms_sc)
     
     def gen_POTCAR(self, elements:list, out_dir:str):
