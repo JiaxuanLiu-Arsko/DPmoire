@@ -63,6 +63,7 @@ def _parse_nodelist(nodelist:str):
 
 def get_job_nodes(job_id:str):
     nodes = []
+    line = ""
     for i in range(3):
         try:
             with os.popen(f"scontrol show job -o {job_id}") as process:
