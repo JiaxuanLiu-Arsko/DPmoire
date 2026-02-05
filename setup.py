@@ -20,7 +20,7 @@ setup(
         "ase",
         "tqdm",
         "pyyaml",
-        "spglib"
+        "spglib",
         "pymatgen"
     ],
     zip_safe=True,

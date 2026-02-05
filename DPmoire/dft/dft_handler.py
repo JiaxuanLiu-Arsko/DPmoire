@@ -63,8 +63,14 @@ def _parse_nodelist(nodelist:str):
 
 def get_job_nodes(job_id:str):
     nodes = []
-    with os.popen(f"scontrol show job -o {job_id}") as process:
-        line = process.readlines()[0].strip()
+    for i in range(3):
+        try:
+            with os.popen(f"scontrol show job -o {job_id}") as process:
+                line = process.readlines()[0].strip()
+        except Exception:
+            time.sleep(10)
+            continue
+        break
     for token in line.split():
         if token.startswith("NodeList="):
             nodes = _parse_nodelist(token.split("=", 1)[1])
