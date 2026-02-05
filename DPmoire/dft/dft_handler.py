@@ -119,8 +119,15 @@ class DFTHandler:
             jobs_left += existing_jobs_left
         exclude_nodes = ",".join(sorted(self.blacklist_nodes))
         exclude_flag = f"--exclude={exclude_nodes} " if exclude_nodes else ""
-        with os.popen(f"sbatch {exclude_flag}{self.script_name}") as process:
-            job_id = process.readlines()[0].split()[-1]
+        job_id = None
+        max_submit_retry = 3
+        while max_submit_retry > 0 and not job_id:
+            with os.popen(f"sbatch {exclude_flag}{self.script_name}") as process:
+                response = process.readlines()
+            if response:
+                job_id = response[0].split()[-1]
+            else:
+                max_submit_retry -= 1
         self.job_list.append(job_id)
         self.job_work_dir[job_id] = work_dir
         time.sleep(60)
