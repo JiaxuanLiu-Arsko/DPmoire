@@ -11,7 +11,8 @@ class RelaxationHandler(DFTHandler):
     script_dir = None
     collect_freq = None
     def __init__(self, config:Config|dict, existing_job:list=None, stackings=None):
-        super().__init__(script_name=config["DFT_script"], n_nodes=config["n_nodes"], existing_job=existing_job, auto_resub=config["auto_resub"])
+        exclude_nodes = config["exclude_nodes"] if "exclude_nodes" in config.keys() else []
+        super().__init__(script_name=config["DFT_script"], n_nodes=config["n_nodes"], existing_job=existing_job, auto_resub=config["auto_resub"], exclude_nodes=exclude_nodes)
         self.n_secs = config["n_sectors"]
         self.work_dir = config["work_dir"]
         self.script_dir = config["script_dir"]
@@ -66,4 +67,3 @@ class RelaxationHandler(DFTHandler):
 
                 
         
-

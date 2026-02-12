@@ -78,6 +78,22 @@ def get_job_nodes(job_id:str):
             break
     return nodes
 
+def _normalize_exclude_nodes(exclude_nodes):
+    if exclude_nodes is None:
+        return []
+    if isinstance(exclude_nodes, str):
+        return [v.strip() for v in exclude_nodes.split(",") if v.strip()]
+    if isinstance(exclude_nodes, (list, tuple, set)):
+        nodes = []
+        for node in exclude_nodes:
+            if node is None:
+                continue
+            normalized = str(node).strip()
+            if normalized:
+                nodes.append(normalized)
+        return nodes
+    raise ValueError("exclude_nodes must be a list/tuple/set or comma-separated string")
+
 class DFTHandler:
     existing_job = None
     job_list = None
@@ -85,7 +101,7 @@ class DFTHandler:
     script_name = None
     job_work_dir = None
     auto_resub = None
-    def __init__(self, script_name:str, n_nodes:int, existing_job:list=None, auto_resub:bool = False):
+    def __init__(self, script_name:str, n_nodes:int, existing_job:list=None, auto_resub:bool = False, exclude_nodes=None):
         self.job_list = []
         self.existing_job = copy.deepcopy(existing_job)
         self.n_nodes = n_nodes
@@ -93,7 +109,7 @@ class DFTHandler:
         self.job_work_dir = {}
         self.auto_resub = auto_resub
         self.node_failures = {}
-        self.blacklist_nodes = set()
+        self.blacklist_nodes = set(_normalize_exclude_nodes(exclude_nodes))
 
     def run_calculation(self):
         pass

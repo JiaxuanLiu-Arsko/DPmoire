@@ -8,6 +8,23 @@ import copy
 class Config(object):
     config_dict = None
 
+    @staticmethod
+    def _normalize_exclude_nodes(value:Any):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [v.strip() for v in value.split(",") if v.strip()]
+        if isinstance(value, (list, tuple, set)):
+            normalized = []
+            for v in value:
+                if v is None:
+                    continue
+                node = str(v).strip()
+                if node:
+                    normalized.append(node)
+            return normalized
+        raise Exception("exclude_nodes must be a list/tuple/set or comma-separated string")
+
     def __getitem__(self, key:str):
         return self.config_dict[key]
     
@@ -29,14 +46,19 @@ class Config(object):
 
     def update(self, config_dict:dict):
         for key in config_dict.keys():
-            if key in CONFIG_KEYS:
-                self.__setitem__(key, config_dict[key])
+            if key in CONFIG_KEYS or key == "exclude_nodes":
+                if key == "exclude_nodes":
+                    self.__setitem__(key, self._normalize_exclude_nodes(config_dict[key]))
+                else:
+                    self.__setitem__(key, config_dict[key])
             else:
                 warnings.warn("Key not found")
         self.check_config()
 
     def __init__(self, config_dict:dict):
         self.config_dict = copy.deepcopy(DEFAULTS)
+        if "exclude_nodes" not in self.config_dict:
+            self.config_dict["exclude_nodes"] = []
         self.update(config_dict)
 
     @classmethod
@@ -59,6 +81,7 @@ class Config(object):
     def check_config(self):
         if self.config_dict is None:
             raise Exception("Global config_dict is None!")
+        self.config_dict["exclude_nodes"] = self._normalize_exclude_nodes(self.config_dict.get("exclude_nodes", []))
         for key, value in self.config_dict.items():
             if value is None:
                 raise Exception(f"{key} is not set!")
